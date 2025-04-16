@@ -143,7 +143,7 @@ exports.deleteCustomer = async (req, res) => {
       });
     }
 
-    await customer.remove();
+    await customer.deleteOne();
 
     res.status(200).json({
       success: true,

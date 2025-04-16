@@ -1,4 +1,3 @@
-// src/pages/dashboard/Dashboard.jsx
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { getCustomers } from '../../services/customerService';
@@ -84,6 +83,17 @@ const Dashboard = () => {
         }));
       } catch (error) {
         console.error('Fehler beim Laden der Dashboard-Daten:', error);
+        // Fehlerbehandlung für jede Datenquelle einzeln
+        setStats(prev => ({
+          customers: { ...prev.customers, loading: false },
+          orders: { ...prev.orders, loading: false },
+          invoices: { ...prev.invoices, loading: false },
+          timeTracking: { ...prev.timeTracking, loading: false }
+        }));
+        setRecentItems(prev => ({
+          orders: { ...prev.orders, loading: false },
+          invoices: { ...prev.invoices, loading: false }
+        }));
       }
     };
 
@@ -189,224 +199,226 @@ const Dashboard = () => {
   const financials = calculateFinancials();
 
   return (
-    <div className="space-y-6">
-      <div className="mb-6">
-        <h1 className="text-2xl font-semibold text-gray-900">Dashboard</h1>
-        <p className="mt-1 text-sm text-gray-600">
-          Willkommen im ERP-System. Hier siehst du eine Übersicht deiner Daten.
-        </p>
-      </div>
-
-      {/* Statistik-Karten */}
-      <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
-        {statCards.map((card, index) => (
-          <Link
-            key={index}
-            to={card.link}
-            className="bg-white overflow-hidden shadow rounded-lg hover:shadow-md transition-shadow duration-300"
-          >
-            <div className="p-5">
-              <div className="flex items-center">
-                <div className="flex-shrink-0">
-                  <div className={`${card.color} rounded-md p-3`}>
-                    <card.icon className="h-6 w-6 text-white" aria-hidden="true" />
-                  </div>
-                </div>
-                <div className="ml-5 w-0 flex-1">
-                  <dt className="text-sm font-medium text-gray-500 truncate">
-                    {card.title}
-                  </dt>
-                  <dd className="flex items-baseline">
-                    <div className="text-2xl font-semibold text-gray-900">
-                      {card.loading ? (
-                        <span className="animate-pulse">...</span>
-                      ) : (
-                        card.count
-                      )}
-                    </div>
-                  </dd>
-                </div>
-              </div>
-            </div>
-            <div className="bg-gray-50 px-5 py-3">
-              <div className="text-sm">
-                <span className="font-medium text-blue-600 hover:text-blue-900">
-                  Alle anzeigen
-                </span>
-              </div>
-            </div>
-          </Link>
-        ))}
-      </div>
-
-      {/* Schnellzugriff */}
-      <div className="bg-white shadow rounded-lg overflow-hidden">
-        <div className="px-4 py-5 sm:px-6">
-          <h3 className="text-lg leading-6 font-medium text-gray-900">Schnellzugriff</h3>
+    <div className="container mx-auto px-2 sm:px-4 lg:px-6">
+      <div className="py-4 sm:py-6">
+        <div className="mb-6">
+          <h1 className="text-xl sm:text-2xl font-semibold text-gray-900">Dashboard</h1>
+          <p className="mt-1 text-sm text-gray-600">
+            Willkommen im ERP-System. Hier siehst du eine Übersicht deiner Daten.
+          </p>
         </div>
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 p-4">
-          {quickActions.map((action, index) => (
+
+        {/* Statistik-Karten */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5">
+          {statCards.map((card, index) => (
             <Link
               key={index}
-              to={action.link}
-              className="bg-white overflow-hidden shadow rounded-lg border border-gray-200 hover:shadow-md transition-shadow duration-300 p-4 flex items-center"
+              to={card.link}
+              className="bg-white overflow-hidden shadow rounded-lg hover:shadow-md transition-shadow duration-300"
             >
-              <div className={`rounded-md p-2 ${action.color}`}>
-                <action.icon className="h-5 w-5" aria-hidden="true" />
+              <div className="p-4 sm:p-5">
+                <div className="flex items-center">
+                  <div className="flex-shrink-0">
+                    <div className={`${card.color} rounded-md p-3`}>
+                      <card.icon className="h-5 w-5 sm:h-6 sm:w-6 text-white" aria-hidden="true" />
+                    </div>
+                  </div>
+                  <div className="ml-4 w-0 flex-1">
+                    <dt className="text-sm font-medium text-gray-500 truncate">
+                      {card.title}
+                    </dt>
+                    <dd className="flex items-baseline">
+                      <div className="text-xl sm:text-2xl font-semibold text-gray-900">
+                        {card.loading ? (
+                          <span className="animate-pulse">...</span>
+                        ) : (
+                          card.count
+                        )}
+                      </div>
+                    </dd>
+                  </div>
+                </div>
               </div>
-              <span className="ml-3 text-sm font-medium text-gray-900">{action.title}</span>
+              <div className="bg-gray-50 px-4 py-2 sm:px-5 sm:py-3">
+                <div className="text-sm">
+                  <span className="font-medium text-blue-600 hover:text-blue-900">
+                    Alle anzeigen
+                  </span>
+                </div>
+              </div>
             </Link>
           ))}
         </div>
-      </div>
 
-      <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
-        {/* Finanzübersicht */}
-        <div className="bg-white shadow rounded-lg overflow-hidden">
-          <div className="px-4 py-5 sm:px-6 flex justify-between items-center">
-            <h3 className="text-lg leading-6 font-medium text-gray-900">Finanzübersicht</h3>
-            <ChartPieIcon className="h-5 w-5 text-gray-400" aria-hidden="true" />
+        {/* Schnellzugriff */}
+        <div className="bg-white shadow rounded-lg overflow-hidden mt-6">
+          <div className="px-4 py-4 sm:px-6">
+            <h3 className="text-lg leading-6 font-medium text-gray-900">Schnellzugriff</h3>
           </div>
-          <div className="p-4">
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <div className="bg-green-50 border border-green-100 rounded-lg p-4">
-                <h4 className="text-sm font-medium text-green-800 mb-2">Bezahlte Rechnungen</h4>
-                <p className="text-2xl font-bold text-green-600">
-                  {financials.loading ? (
-                    <span className="animate-pulse">...</span>
-                  ) : (
-                    formatCurrency(financials.totalPaid)
-                  )}
-                </p>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4 p-4">
+            {quickActions.map((action, index) => (
+              <Link
+                key={index}
+                to={action.link}
+                className="bg-white overflow-hidden shadow rounded-lg border border-gray-200 hover:shadow-md transition-shadow duration-300 p-3 flex items-center"
+              >
+                <div className={`rounded-md p-2 ${action.color}`}>
+                  <action.icon className="h-5 w-5" aria-hidden="true" />
+                </div>
+                <span className="ml-3 text-sm font-medium text-gray-900">{action.title}</span>
+              </Link>
+            ))}
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 gap-5 lg:grid-cols-2 mt-6">
+          {/* Finanzübersicht */}
+          <div className="bg-white shadow rounded-lg overflow-hidden">
+            <div className="px-4 py-4 sm:px-6 flex justify-between items-center">
+              <h3 className="text-lg leading-6 font-medium text-gray-900">Finanzübersicht</h3>
+              <ChartPieIcon className="h-5 w-5 text-gray-400" aria-hidden="true" />
+            </div>
+            <div className="p-4">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <div className="bg-green-50 border border-green-100 rounded-lg p-4">
+                  <h4 className="text-sm font-medium text-green-800 mb-2">Bezahlte Rechnungen</h4>
+                  <p className="text-xl sm:text-2xl font-bold text-green-600">
+                    {financials.loading ? (
+                      <span className="animate-pulse">...</span>
+                    ) : (
+                      formatCurrency(financials.totalPaid)
+                    )}
+                  </p>
+                </div>
+                <div className="bg-yellow-50 border border-yellow-100 rounded-lg p-4">
+                  <h4 className="text-sm font-medium text-yellow-800 mb-2">Offene Rechnungen</h4>
+                  <p className="text-xl sm:text-2xl font-bold text-yellow-600">
+                    {financials.loading ? (
+                      <span className="animate-pulse">...</span>
+                    ) : (
+                      formatCurrency(financials.totalOpen)
+                    )}
+                  </p>
+                </div>
               </div>
-              <div className="bg-yellow-50 border border-yellow-100 rounded-lg p-4">
-                <h4 className="text-sm font-medium text-yellow-800 mb-2">Offene Rechnungen</h4>
-                <p className="text-2xl font-bold text-yellow-600">
-                  {financials.loading ? (
-                    <span className="animate-pulse">...</span>
-                  ) : (
-                    formatCurrency(financials.totalOpen)
-                  )}
-                </p>
-              </div>
+            </div>
+          </div>
+
+          {/* Letzte Arbeitszeiten */}
+          <div className="bg-white shadow rounded-lg overflow-hidden">
+            <div className="px-4 py-4 sm:px-6">
+              <h3 className="text-lg leading-6 font-medium text-gray-900">Letzte Aktivitäten</h3>
+            </div>
+            <div className="bg-gray-50 px-4 py-3 border-t border-gray-200 text-sm font-medium">
+              <Link to="/time-tracking" className="text-blue-600 hover:text-blue-900">
+                Zur Zeiterfassung
+              </Link>
             </div>
           </div>
         </div>
 
-        {/* Letzte Arbeitszeiten */}
-        <div className="bg-white shadow rounded-lg overflow-hidden">
-          <div className="px-4 py-5 sm:px-6">
-            <h3 className="text-lg leading-6 font-medium text-gray-900">Letzte Aktivitäten</h3>
-          </div>
-          <div className="bg-gray-50 px-4 py-3 border-t border-gray-200 text-sm font-medium">
-            <Link to="/time-tracking" className="text-blue-600 hover:text-blue-900">
-              Zur Zeiterfassung
-            </Link>
-          </div>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
-        {/* Letzte Aufträge */}
-        <div className="bg-white shadow rounded-lg overflow-hidden">
-          <div className="px-4 py-5 sm:px-6">
-            <h3 className="text-lg leading-6 font-medium text-gray-900">Neueste Aufträge</h3>
-          </div>
-          <div className="divide-y divide-gray-200">
-            {recentItems.orders.loading ? (
-              <div className="px-4 py-4 text-center text-sm text-gray-500">
-                Daten werden geladen...
-              </div>
-            ) : recentItems.orders.data.length === 0 ? (
-              <div className="px-4 py-4 text-center text-sm text-gray-500">
-                Keine Aufträge vorhanden
-              </div>
-            ) : (
-              recentItems.orders.data.map(order => (
-                <Link 
-                  key={order._id} 
-                  to={`/orders/${order._id}`}
-                  className="block px-4 py-4 hover:bg-gray-50"
-                >
-                  <div className="flex items-center justify-between">
-                    <div className="truncate">
-                      <div className="text-sm font-medium text-gray-900">
-                        {order.orderNumber}
+        <div className="grid grid-cols-1 gap-5 lg:grid-cols-2 mt-6">
+          {/* Letzte Aufträge */}
+          <div className="bg-white shadow rounded-lg overflow-hidden">
+            <div className="px-4 py-4 sm:px-6">
+              <h3 className="text-lg leading-6 font-medium text-gray-900">Neueste Aufträge</h3>
+            </div>
+            <div className="divide-y divide-gray-200">
+              {recentItems.orders.loading ? (
+                <div className="px-4 py-4 text-center text-sm text-gray-500">
+                  <div className="inline-block animate-spin rounded-full h-5 w-5 border-t-2 border-b-2 border-blue-500 mr-2"></div>
+                  Daten werden geladen...
+                </div>
+              ) : recentItems.orders.data.length === 0 ? (
+                <div className="px-4 py-4 text-center text-sm text-gray-500">
+                  Keine Aufträge vorhanden
+                </div>
+              ) : (
+                recentItems.orders.data.map(order => (
+                  <Link 
+                    key={order._id} 
+                    to={`/orders/${order._id}`}
+                    className="block px-4 py-3 sm:py-4 hover:bg-gray-50"
+                  >
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
+                      <div className="mb-1 sm:mb-0">
+                        <div className="text-sm font-medium text-gray-900">
+                          {order.orderNumber}
+                        </div>
+                        <div className="text-sm text-gray-500 truncate max-w-xs">
+                          {order.customer && order.customer.name ? order.customer.name : 'Kunde'}
+                        </div>
                       </div>
-                      <div className="text-sm text-gray-500 truncate">
-                        {order.customer && order.customer.name ? order.customer.name : 'Kunde'}
-                      </div>
-                    </div>
-                    <div className="ml-2 flex-shrink-0 flex">
                       <div className="text-sm text-gray-500">
                         {formatCurrency(order.totalAmount)}
                       </div>
                     </div>
-                  </div>
-                </Link>
-              ))
-            )}
+                  </Link>
+                ))
+              )}
+            </div>
+            <div className="bg-gray-50 px-4 py-3 border-t border-gray-200 text-sm font-medium">
+              <Link to="/orders" className="text-blue-600 hover:text-blue-900">
+                Alle Aufträge anzeigen
+              </Link>
+            </div>
           </div>
-          <div className="bg-gray-50 px-4 py-3 border-t border-gray-200 text-sm font-medium">
-            <Link to="/orders" className="text-blue-600 hover:text-blue-900">
-              Alle Aufträge anzeigen
-            </Link>
-          </div>
-        </div>
 
-        {/* Letzte Rechnungen */}
-        <div className="bg-white shadow rounded-lg overflow-hidden">
-          <div className="px-4 py-5 sm:px-6">
-            <h3 className="text-lg leading-6 font-medium text-gray-900">Neueste Rechnungen</h3>
-          </div>
-          <div className="divide-y divide-gray-200">
-            {recentItems.invoices.loading ? (
-              <div className="px-4 py-4 text-center text-sm text-gray-500">
-                Daten werden geladen...
-              </div>
-            ) : recentItems.invoices.data.length === 0 ? (
-              <div className="px-4 py-4 text-center text-sm text-gray-500">
-                Keine Rechnungen vorhanden
-              </div>
-            ) : (
-              recentItems.invoices.data.map(invoice => (
-                <Link 
-                  key={invoice._id} 
-                  to={`/invoices/${invoice._id}`}
-                  className="block px-4 py-4 hover:bg-gray-50"
-                >
-                  <div className="flex items-center justify-between">
-                    <div className="truncate">
-                      <div className="text-sm font-medium text-gray-900">
-                        {invoice.invoiceNumber}
+          {/* Letzte Rechnungen */}
+          <div className="bg-white shadow rounded-lg overflow-hidden">
+            <div className="px-4 py-4 sm:px-6">
+              <h3 className="text-lg leading-6 font-medium text-gray-900">Neueste Rechnungen</h3>
+            </div>
+            <div className="divide-y divide-gray-200">
+              {recentItems.invoices.loading ? (
+                <div className="px-4 py-4 text-center text-sm text-gray-500">
+                  <div className="inline-block animate-spin rounded-full h-5 w-5 border-t-2 border-b-2 border-blue-500 mr-2"></div>
+                  Daten werden geladen...
+                </div>
+              ) : recentItems.invoices.data.length === 0 ? (
+                <div className="px-4 py-4 text-center text-sm text-gray-500">
+                  Keine Rechnungen vorhanden
+                </div>
+              ) : (
+                recentItems.invoices.data.map(invoice => (
+                  <Link 
+                    key={invoice._id} 
+                    to={`/invoices/${invoice._id}`}
+                    className="block px-4 py-3 sm:py-4 hover:bg-gray-50"
+                  >
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
+                      <div className="mb-1 sm:mb-0">
+                        <div className="text-sm font-medium text-gray-900">
+                          {invoice.invoiceNumber}
+                        </div>
+                        <div className="text-sm text-gray-500 truncate max-w-xs">
+                          {invoice.customer && invoice.customer.name ? invoice.customer.name : 'Kunde'} - {formatDate(invoice.issueDate)}
+                        </div>
                       </div>
-                      <div className="text-sm text-gray-500 truncate">
-                        {invoice.customer && invoice.customer.name ? invoice.customer.name : 'Kunde'} - {formatDate(invoice.issueDate)}
+                      <div className="flex items-center">
+                        <span 
+                          className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full mr-2
+                          ${invoice.status === 'bezahlt' ? 'bg-green-100 text-green-800' : 
+                             invoice.status === 'versendet' ? 'bg-blue-100 text-blue-800' : 
+                             invoice.status === 'storniert' ? 'bg-red-100 text-red-800' : 
+                             'bg-yellow-100 text-yellow-800'}`}
+                        >
+                          {invoice.status}
+                        </span>
+                        <div className="text-sm text-gray-500">
+                          {formatCurrency(invoice.totalAmount)}
+                        </div>
                       </div>
                     </div>
-                    <div className="ml-2 flex-shrink-0 flex">
-                      <span 
-                        className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
-                        ${invoice.status === 'bezahlt' ? 'bg-green-100 text-green-800' : 
-                           invoice.status === 'versendet' ? 'bg-blue-100 text-blue-800' : 
-                           invoice.status === 'storniert' ? 'bg-red-100 text-red-800' : 
-                           'bg-yellow-100 text-yellow-800'}`}
-                      >
-                        {invoice.status}
-                      </span>
-                      <div className="ml-2 text-sm text-gray-500">
-                        {formatCurrency(invoice.totalAmount)}
-                      </div>
-                    </div>
-                  </div>
-                </Link>
-              ))
-            )}
-          </div>
-          <div className="bg-gray-50 px-4 py-3 border-t border-gray-200 text-sm font-medium">
-            <Link to="/invoices" className="text-blue-600 hover:text-blue-900">
-              Alle Rechnungen anzeigen
-            </Link>
+                  </Link>
+                ))
+              )}
+            </div>
+            <div className="bg-gray-50 px-4 py-3 border-t border-gray-200 text-sm font-medium">
+              <Link to="/invoices" className="text-blue-600 hover:text-blue-900">
+                Alle Rechnungen anzeigen
+              </Link>
+            </div>
           </div>
         </div>
       </div>

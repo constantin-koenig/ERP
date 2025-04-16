@@ -1,8 +1,8 @@
-// src/context/AuthContext.jsx - Korrigierte Version
+// src/context/AuthContext.jsx
 import { createContext, useContext, useState, useEffect } from 'react'
-import { jwtDecode } from 'jwt-decode'  // Korrekter Import für neuere jwt-decode Versionen
+import { jwtDecode } from 'jwt-decode'  // Für neuere jwt-decode Versionen
 import { toast } from 'react-toastify'
-import { loginUser, registerUser } from '../services/authService'
+import { loginUser, registerUser, getCurrentUser } from '../services/authService'
 
 const AuthContext = createContext()
 
@@ -24,106 +24,165 @@ const toastConfig = {
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null)
   const [token, setToken] = useState(localStorage.getItem('token') || null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState(null)
+  const [loading, setLoading] = useState(false) // Wichtig: Initial nicht laden
+  const [authError, setAuthError] = useState(null)
+  const [initializing, setInitializing] = useState(true) // App-Initialisierung läuft
 
+  // App-Initialisierung: Token prüfen und Benutzer laden
   useEffect(() => {
-    if (token) {
-      try {
-        const decoded = jwtDecode(token)
-        // Prüfe, ob der Token abgelaufen ist
-        const currentTime = Date.now() / 1000
-        if (decoded.exp < currentTime) {
-          logout()
-          toast.error('Deine Sitzung ist abgelaufen. Bitte melde dich erneut an.', toastConfig)
-        } else {
-          setUser(decoded)
+    const initAuth = async () => {
+      if (token) {
+        try {
+          // Token dekodieren und auf Gültigkeit prüfen
+          const decoded = jwtDecode(token)
+          
+          // Prüfen, ob der Token abgelaufen ist
+          const currentTime = Date.now() / 1000
+          if (decoded.exp < currentTime) {
+            console.log("Token ist abgelaufen")
+            handleLogout()
+          } else {
+            // Token ist gültig, Benutzer-Informationen abrufen
+            setUser(decoded) // Erstmal aus Token setzen
+            
+            try {
+              // Optional: Vollständige Benutzerinformationen vom Server abrufen
+              const userResponse = await getCurrentUser()
+              if (userResponse.success) {
+                setUser(userResponse.data.data || decoded)
+              }
+            } catch (error) {
+              console.error("Fehler beim Abrufen der Benutzerinformationen:", error)
+              // Wir loggen den Benutzer nicht aus, da der Token noch gültig ist
+            }
+          }
+        } catch (error) {
+          console.error("Ungültiger Token:", error)
+          handleLogout()
         }
-      } catch (error) {
-        console.error('Token decode error:', error)
-        logout()
-        toast.error('Ungültiger Token. Bitte melde dich erneut an.', toastConfig)
       }
+      
+      setInitializing(false) // Initialisierung abgeschlossen
     }
-    setLoading(false)
+
+    initAuth()
   }, [token])
 
-  const login = async (email, password) => {
+  const handleLogin = async (email, password) => {
+    setLoading(true)
+    setAuthError(null) // Fehler zurücksetzen
+    
     try {
-      setLoading(true)
-      setError(null)
-      const response = await loginUser(email, password)
-      const { token } = response.data
-      localStorage.setItem('token', token)
-      setToken(token)
-      const decoded = jwtDecode(token)
-      setUser(decoded)
-      toast.success('Erfolgreich angemeldet!', toastConfig)
-      return true
+      const result = await loginUser(email, password)
+      
+      if (result.success && result.data.token) {
+        // Token sichern und speichern
+        const token = result.data.token
+        localStorage.setItem('token', token)
+        setToken(token)
+        
+        // Benutzer aus Token dekodieren
+        try {
+          const decoded = jwtDecode(token)
+          setUser(decoded)
+        } catch (error) {
+          console.error("Fehler beim Dekodieren des Tokens:", error)
+          // Wir fahren trotzdem fort, da der Server-Token gültig sein sollte
+        }
+        
+        toast.success('Erfolgreich angemeldet!', toastConfig)
+        return true
+      } else {
+        throw new Error("Ungültige Antwort vom Server")
+      }
     } catch (error) {
-      console.error('Login error:', error)
-      setError(
-        error.response?.data?.message || 
-        'Anmeldung fehlgeschlagen. Bitte überprüfe deine E-Mail und dein Passwort.'
-      )
-      toast.error(
-        error.response?.data?.message || 
-        'Anmeldung fehlgeschlagen. Bitte überprüfe deine E-Mail und dein Passwort.', 
-        toastConfig
-      )
+      // Sehr wichtig: Die Fehlerbehandlung im Context abfangen
+      console.error("Login fehlgeschlagen:", error)
+      
+      // Fehlertext extrahieren
+      const errorMessage = error.response?.data?.message || 
+                        'Anmeldung fehlgeschlagen. Bitte überprüfe deine E-Mail und dein Passwort.'
+      
+      // Fehler im Zustand speichern UND als Toast anzeigen
+      setAuthError(errorMessage)
+      toast.error(errorMessage, toastConfig)
+      
+      return false
+    } finally {
+      setLoading(false) // Immer den Ladezustand zurücksetzen
+    }
+  }
+
+  const handleRegister = async (userData) => {
+    setLoading(true)
+    setAuthError(null)
+    
+    try {
+      const result = await registerUser(userData)
+      
+      if (result.success && result.data.token) {
+        const token = result.data.token
+        localStorage.setItem('token', token)
+        setToken(token)
+        
+        try {
+          const decoded = jwtDecode(token)
+          setUser(decoded)
+        } catch (error) {
+          console.error("Fehler beim Dekodieren des Tokens:", error)
+        }
+        
+        toast.success('Registrierung erfolgreich!', toastConfig)
+        return true
+      } else {
+        throw new Error("Ungültige Antwort vom Server")
+      }
+    } catch (error) {
+      console.error("Registrierung fehlgeschlagen:", error)
+      
+      const errorMessage = error.response?.data?.message || 
+                        'Registrierung fehlgeschlagen. Diese E-Mail-Adresse könnte bereits verwendet werden.'
+      
+      setAuthError(errorMessage)
+      toast.error(errorMessage, toastConfig)
+      
       return false
     } finally {
       setLoading(false)
     }
   }
 
-  const register = async (userData) => {
-    try {
-      setLoading(true)
-      setError(null)
-      const response = await registerUser(userData)
-      const { token } = response.data
-      localStorage.setItem('token', token)
-      setToken(token)
-      const decoded = jwtDecode(token)
-      setUser(decoded)
-      toast.success('Registrierung erfolgreich!', toastConfig)
-      return true
-    } catch (error) {
-      console.error('Registration error:', error)
-      setError(
-        error.response?.data?.message || 
-        'Registrierung fehlgeschlagen. Diese E-Mail-Adresse könnte bereits verwendet werden.'
-      )
-      toast.error(
-        error.response?.data?.message || 
-        'Registrierung fehlgeschlagen. Diese E-Mail-Adresse könnte bereits verwendet werden.', 
-        toastConfig
-      )
-      return false
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const logout = () => {
+  const handleLogout = () => {
     localStorage.removeItem('token')
     setToken(null)
     setUser(null)
-    setError(null)
-    // Optional: Toast-Nachricht beim Ausloggen
+    setAuthError(null)
+    
     toast.info('Du wurdest abgemeldet.', toastConfig)
   }
 
-  const value = {
+  const clearError = () => {
+    setAuthError(null)
+  }
+
+  // Context-Provider-Werte
+  const contextValue = {
     user,
     token,
     loading,
-    error,
-    login,
-    register,
-    logout
+    error: authError,
+    initialized: !initializing,
+    login: handleLogin,
+    register: handleRegister,
+    logout: handleLogout,
+    clearError
   }
 
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
+  return (
+    <AuthContext.Provider value={contextValue}>
+      {children}
+    </AuthContext.Provider>
+  )
 }
+
+export default AuthProvider

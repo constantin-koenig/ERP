@@ -1,59 +1,91 @@
-// src/pages/auth/Login.jsx - Verbesserte Version
+// src/pages/auth/Login.jsx
 import { useState, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
+import { ExclamationCircleIcon } from '@heroicons/react/outline'
 
 const Login = () => {
-  const navigate = useNavigate();
+  const navigate = useNavigate()
+  const { login, loading, error, user, clearError } = useAuth()
+  
+  // Form-Zustand
   const [formData, setFormData] = useState({
     email: '',
     password: ''
   })
-  const [errors, setErrors] = useState({})
-  const { login, loading, error, user } = useAuth()
+  const [formErrors, setFormErrors] = useState({})
+  const [submitAttempted, setSubmitAttempted] = useState(false)
 
+  // Redirect wenn bereits angemeldet
   useEffect(() => {
-    // Falls der Benutzer bereits angemeldet ist, zum Dashboard weiterleiten
     if (user) {
-      navigate('/');
+      navigate('/')
     }
-  }, [user, navigate]);
+    
+    // Fehler beim unmounten zurücksetzen
+    return () => {
+      if (clearError) clearError()
+    }
+  }, [user, navigate, clearError])
 
   const handleChange = (e) => {
-    setFormData({
-      ...formData,
-      [e.target.name]: e.target.value
-    })
+    const { name, value } = e.target
     
-    // Fehler zurücksetzen, wenn der Benutzer etwas eintippt
-    if (errors[e.target.name]) {
-      setErrors(prev => ({
+    // Formular aktualisieren
+    setFormData(prev => ({
+      ...prev,
+      [name]: value
+    }))
+    
+    // Feldspezifischen Fehler löschen, wenn Benutzer tippt
+    if (formErrors[name]) {
+      setFormErrors(prev => ({
         ...prev,
-        [e.target.name]: ''
-      }));
+        [name]: ''
+      }))
     }
   }
 
-  const validate = () => {
+  const validateForm = () => {
     let tempErrors = {}
-    if (!formData.email) {
+    let isValid = true
+    
+    // E-Mail-Validierung
+    if (!formData.email.trim()) {
       tempErrors.email = 'E-Mail ist erforderlich'
+      isValid = false
     } else if (!/^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i.test(formData.email)) {
       tempErrors.email = 'Ungültige E-Mail-Adresse'
+      isValid = false
     }
+    
+    // Passwort-Validierung
     if (!formData.password) {
       tempErrors.password = 'Passwort ist erforderlich'
+      isValid = false
     }
-    setErrors(tempErrors)
-    return Object.keys(tempErrors).length === 0
+    
+    setFormErrors(tempErrors)
+    return isValid
   }
 
   const handleSubmit = async (e) => {
     e.preventDefault()
-    if (validate()) {
-      const success = await login(formData.email, formData.password)
-      if (success) {
-        navigate('/');
+    
+    // Verhindern von Form-Submission, wenn bereits geladen wird
+    if (loading) return
+    
+    setSubmitAttempted(true)
+    
+    if (validateForm()) {
+      try {
+        // WICHTIG: Wir fangen den Fehler hier ab, statt ihn weiterzuleiten,
+        // damit die Seite nicht neu geladen wird
+        await login(formData.email, formData.password)
+        // Wenn erfolgreich, wird useEffect für die Weiterleitung sorgen
+      } catch (err) {
+        // Wir brauchen hier nichts zu tun, da der Fehler bereits in AuthContext verarbeitet wird
+        console.log("Login failed but handled in component:", err)
       }
     }
   }
@@ -73,11 +105,15 @@ const Login = () => {
           </p>
         </div>
         
+        {/* Globales Fehlerfeld */}
         {error && (
           <div className="rounded-md bg-red-50 p-4 mb-4">
             <div className="flex">
+              <div className="flex-shrink-0">
+                <ExclamationCircleIcon className="h-5 w-5 text-red-400" aria-hidden="true" />
+              </div>
               <div className="ml-3">
-                <h3 className="text-sm font-medium text-red-800">Fehler</h3>
+                <h3 className="text-sm font-medium text-red-800">Anmeldung fehlgeschlagen</h3>
                 <div className="mt-2 text-sm text-red-700">
                   <p>{error}</p>
                 </div>
@@ -86,48 +122,67 @@ const Login = () => {
           </div>
         )}
 
-        <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
+        <form className="mt-8 space-y-6" onSubmit={handleSubmit} noValidate>
           <div className="rounded-md shadow-sm space-y-4">
             <div>
               <label htmlFor="email" className="block text-sm font-medium text-gray-700">
                 E-Mail-Adresse
               </label>
-              <input
-                id="email"
-                name="email"
-                type="email"
-                autoComplete="email"
-                required
-                className={`appearance-none rounded-md relative block w-full px-3 py-2 border ${
-                  errors.email ? 'border-red-300' : 'border-gray-300'
-                } placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm`}
-                placeholder="E-Mail-Adresse"
-                value={formData.email}
-                onChange={handleChange}
-              />
-              {errors.email && (
-                <p className="mt-1 text-sm text-red-600">{errors.email}</p>
+              <div className="mt-1 relative">
+                <input
+                  id="email"
+                  name="email"
+                  type="email"
+                  autoComplete="email"
+                  required
+                  className={`appearance-none block w-full px-3 py-2 border ${
+                    formErrors.email ? 'border-red-300' : 'border-gray-300'
+                  } rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm`}
+                  placeholder="E-Mail-Adresse"
+                  value={formData.email}
+                  onChange={handleChange}
+                  aria-invalid={formErrors.email ? 'true' : 'false'}
+                  aria-describedby={formErrors.email ? "email-error" : undefined}
+                />
+                {formErrors.email && (
+                  <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                    <ExclamationCircleIcon className="h-5 w-5 text-red-500" aria-hidden="true" />
+                  </div>
+                )}
+              </div>
+              {formErrors.email && (
+                <p className="mt-2 text-sm text-red-600" id="email-error">{formErrors.email}</p>
               )}
             </div>
+            
             <div>
               <label htmlFor="password" className="block text-sm font-medium text-gray-700">
                 Passwort
               </label>
-              <input
-                id="password"
-                name="password"
-                type="password"
-                autoComplete="current-password"
-                required
-                className={`appearance-none rounded-md relative block w-full px-3 py-2 border ${
-                  errors.password ? 'border-red-300' : 'border-gray-300'
-                } placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm`}
-                placeholder="Passwort"
-                value={formData.password}
-                onChange={handleChange}
-              />
-              {errors.password && (
-                <p className="mt-1 text-sm text-red-600">{errors.password}</p>
+              <div className="mt-1 relative">
+                <input
+                  id="password"
+                  name="password"
+                  type="password"
+                  autoComplete="current-password"
+                  required
+                  className={`appearance-none block w-full px-3 py-2 border ${
+                    formErrors.password ? 'border-red-300' : 'border-gray-300'
+                  } rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm`}
+                  placeholder="Passwort"
+                  value={formData.password}
+                  onChange={handleChange}
+                  aria-invalid={formErrors.password ? 'true' : 'false'}
+                  aria-describedby={formErrors.password ? "password-error" : undefined}
+                />
+                {formErrors.password && (
+                  <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                    <ExclamationCircleIcon className="h-5 w-5 text-red-500" aria-hidden="true" />
+                  </div>
+                )}
+              </div>
+              {formErrors.password && (
+                <p className="mt-2 text-sm text-red-600" id="password-error">{formErrors.password}</p>
               )}
             </div>
           </div>
@@ -156,7 +211,7 @@ const Login = () => {
             <button
               type="submit"
               disabled={loading}
-              className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:bg-blue-300"
+              className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
             >
               {loading ? (
                 <>

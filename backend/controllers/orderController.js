@@ -152,13 +152,14 @@ exports.deleteOrder = async (req, res) => {
       });
     }
 
-    await order.remove();
+    await order.deleteOne();
 
     res.status(200).json({
       success: true,
       data: {}
     });
   } catch (error) {
+    console.log(error);
     res.status(500).json({
       success: false,
       message: 'Serverfehler'
