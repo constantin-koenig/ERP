@@ -1,7 +1,9 @@
-// frontend/frontend/src/pages/profile/UserProfile.jsx (Layout-Korrektur)
+// src/pages/profile/UserProfile.jsx - Mit Dark Mode-Support
 import { useState, useEffect } from 'react'
 import { toast } from 'react-toastify'
 import { useAuth } from '../../context/AuthContext'
+import { useTheme } from '../../context/ThemeContext'
+import { useDashboard, DASHBOARD_LAYOUTS } from '../../context/DashboardContext'
 import { updateUserDetails } from '../../services/authService'
 import ProfileImageUpload from './ProfileImageUpload'
 import PasswordChangeForm from './PasswordChangeForm'
@@ -14,6 +16,8 @@ import {
 
 const UserProfile = () => {
   const { user, updateSession } = useAuth() 
+  const { isDarkMode, toggleTheme } = useTheme()
+  const { layout, changeLayout } = useDashboard()
   
   const [loading, setLoading] = useState(false)
   const [settingsLoading, setSettingsLoading] = useState(false)
@@ -135,6 +139,17 @@ const UserProfile = () => {
         if (updateSession) {
           updateSession(response.data.data)
         }
+        
+        // Aktualisiere Theme und Layout direkt, wenn sich diese Einstellungen geändert haben
+        if (profileData.settings.theme === 'dark' && !isDarkMode) {
+          toggleTheme()
+        } else if (profileData.settings.theme === 'light' && isDarkMode) {
+          toggleTheme()
+        }
+        
+        if (profileData.settings.dashboardLayout !== layout) {
+          changeLayout(profileData.settings.dashboardLayout)
+        }
       }
     } catch (error) {
       console.error('Fehler beim Aktualisieren der Einstellungen:', error)
@@ -147,21 +162,21 @@ const UserProfile = () => {
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="max-w-4xl mx-auto">
-        <h1 className="text-2xl font-bold text-gray-900 mb-6">Benutzerprofil</h1>
+        <h1 className={`text-2xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'} mb-6`}>Benutzerprofil</h1>
         
-        <div className="bg-white shadow rounded-lg overflow-hidden mb-6">
+        <div className="bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden mb-6">
           <div className="md:flex">
-            <div className="md:w-1/3 bg-gray-50 p-6 border-r border-gray-200">
+            <div className="md:w-1/3 bg-gray-50 dark:bg-gray-700 p-6 border-r border-gray-200 dark:border-gray-600">
               <ProfileImageUpload />
             </div>
             
             <div className="md:w-2/3 p-6">
-              <h2 className="text-lg font-medium text-gray-900 mb-4">Persönliche Informationen</h2>
+              <h2 className="text-lg font-medium text-gray-900 dark:text-white mb-4">Persönliche Informationen</h2>
               
               <form onSubmit={handleProfileSubmit}>
                 <div className="grid grid-cols-1 gap-y-6 gap-x-4 sm:grid-cols-6">
                   <div className="sm:col-span-3">
-                    <label htmlFor="name" className="block text-sm font-medium text-gray-700">
+                    <label htmlFor="name" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
                       Name
                     </label>
                     <div className="mt-1">
@@ -171,13 +186,13 @@ const UserProfile = () => {
                         id="name"
                         value={profileData.name}
                         onChange={handleChange}
-                        className="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 rounded-md"
+                        className="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-md"
                       />
                     </div>
                   </div>
 
                   <div className="sm:col-span-3">
-                    <label htmlFor="email" className="block text-sm font-medium text-gray-700">
+                    <label htmlFor="email" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
                       E-Mail-Adresse
                     </label>
                     <div className="mt-1">
@@ -187,13 +202,13 @@ const UserProfile = () => {
                         id="email"
                         value={profileData.email}
                         onChange={handleChange}
-                        className="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 rounded-md"
+                        className="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-md"
                       />
                     </div>
                   </div>
 
                   <div className="sm:col-span-3">
-                    <label htmlFor="phone" className="block text-sm font-medium text-gray-700">
+                    <label htmlFor="phone" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
                       Telefon
                     </label>
                     <div className="mt-1">
@@ -203,13 +218,13 @@ const UserProfile = () => {
                         id="phone"
                         value={profileData.phone}
                         onChange={handleChange}
-                        className="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 rounded-md"
+                        className="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-md"
                       />
                     </div>
                   </div>
 
                   <div className="sm:col-span-3">
-                    <label htmlFor="position" className="block text-sm font-medium text-gray-700">
+                    <label htmlFor="position" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
                       Position
                     </label>
                     <div className="mt-1">
@@ -219,7 +234,7 @@ const UserProfile = () => {
                         id="position"
                         value={profileData.position}
                         onChange={handleChange}
-                        className="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 rounded-md"
+                        className="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-md"
                       />
                     </div>
                   </div>
@@ -229,7 +244,7 @@ const UserProfile = () => {
                   <button
                     type="submit"
                     disabled={loading}
-                    className="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 min-w-[120px]"
+                    className="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 dark:bg-blue-700 dark:hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 dark:focus:ring-offset-gray-800 disabled:opacity-50 min-w-[120px]"
                   >
                     {loading ? 'Wird gespeichert...' : 'Speichern'}
                   </button>
@@ -240,9 +255,9 @@ const UserProfile = () => {
         </div>
         
         {/* Benutzereinstellungen */}
-        <div className="bg-white shadow rounded-lg overflow-hidden mb-6">
-          <div className="px-6 py-5 border-b border-gray-200">
-            <h2 className="text-lg font-medium text-gray-900">Einstellungen</h2>
+        <div className="bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden mb-6">
+          <div className="px-6 py-5 border-b border-gray-200 dark:border-gray-700">
+            <h2 className="text-lg font-medium text-gray-900 dark:text-white">Einstellungen</h2>
           </div>
           
           <div className="p-6">
@@ -252,10 +267,10 @@ const UserProfile = () => {
                 <div className="col-span-1">
                   <div className="flex items-start">
                     <div className="flex-shrink-0">
-                      <ColorSwatchIcon className="h-6 w-6 text-gray-400" />
+                      <ColorSwatchIcon className={`h-6 w-6 ${isDarkMode ? 'text-gray-400' : 'text-gray-400'}`} />
                     </div>
                     <div className="ml-3">
-                      <label htmlFor="theme" className="block text-sm font-medium text-gray-700">
+                      <label htmlFor="theme" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
                         Design
                       </label>
                       <div className="mt-1">
@@ -264,7 +279,7 @@ const UserProfile = () => {
                           name="theme"
                           value={profileData.settings.theme}
                           onChange={handleSettingsChange}
-                          className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md"
+                          className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md"
                         >
                           <option value="system">Systemeinstellung</option>
                           <option value="light">Hell</option>
@@ -279,10 +294,10 @@ const UserProfile = () => {
                 <div className="col-span-1">
                   <div className="flex items-start">
                     <div className="flex-shrink-0">
-                      <GlobeIcon className="h-6 w-6 text-gray-400" />
+                      <GlobeIcon className={`h-6 w-6 ${isDarkMode ? 'text-gray-400' : 'text-gray-400'}`} />
                     </div>
                     <div className="ml-3">
-                      <label htmlFor="language" className="block text-sm font-medium text-gray-700">
+                      <label htmlFor="language" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
                         Sprache
                       </label>
                       <div className="mt-1">
@@ -291,7 +306,7 @@ const UserProfile = () => {
                           name="language"
                           value={profileData.settings.language}
                           onChange={handleSettingsChange}
-                          className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md"
+                          className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md"
                         >
                           <option value="de">Deutsch</option>
                           <option value="en">Englisch</option>
@@ -305,10 +320,10 @@ const UserProfile = () => {
                 <div className="col-span-1">
                   <div className="flex items-start">
                     <div className="flex-shrink-0">
-                      <UserCircleIcon className="h-6 w-6 text-gray-400" />
+                      <UserCircleIcon className={`h-6 w-6 ${isDarkMode ? 'text-gray-400' : 'text-gray-400'}`} />
                     </div>
                     <div className="ml-3">
-                      <label htmlFor="dashboardLayout" className="block text-sm font-medium text-gray-700">
+                      <label htmlFor="dashboardLayout" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
                         Dashboard-Ansicht
                       </label>
                       <div className="mt-1">
@@ -317,7 +332,7 @@ const UserProfile = () => {
                           name="dashboardLayout"
                           value={profileData.settings.dashboardLayout}
                           onChange={handleSettingsChange}
-                          className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md"
+                          className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md"
                         >
                           <option value="default">Standard</option>
                           <option value="compact">Kompakt</option>
@@ -332,10 +347,10 @@ const UserProfile = () => {
                 <div className="col-span-1">
                   <div className="flex items-start">
                     <div className="flex-shrink-0">
-                      <BellIcon className="h-6 w-6 text-gray-400" />
+                      <BellIcon className={`h-6 w-6 ${isDarkMode ? 'text-gray-400' : 'text-gray-400'}`} />
                     </div>
                     <div className="ml-3">
-                      <span className="block text-sm font-medium text-gray-700">Benachrichtigungen</span>
+                      <span className="block text-sm font-medium text-gray-700 dark:text-gray-300">Benachrichtigungen</span>
                       <div className="mt-2 space-y-2">
                         <div className="flex items-start">
                           <div className="flex items-center h-5">
@@ -345,11 +360,11 @@ const UserProfile = () => {
                               type="checkbox"
                               checked={profileData.settings.notifications.email}
                               onChange={handleSettingsChange}
-                              className="focus:ring-blue-500 h-4 w-4 text-blue-600 border-gray-300 rounded"
+                              className="focus:ring-blue-500 h-4 w-4 text-blue-600 border-gray-300 dark:border-gray-600 dark:bg-gray-700 rounded"
                             />
                           </div>
                           <div className="ml-3 text-sm">
-                            <label htmlFor="notifications.email" className="font-medium text-gray-700">
+                            <label htmlFor="notifications.email" className="font-medium text-gray-700 dark:text-gray-300">
                               E-Mail-Benachrichtigungen
                             </label>
                           </div>
@@ -362,11 +377,11 @@ const UserProfile = () => {
                               type="checkbox"
                               checked={profileData.settings.notifications.browser}
                               onChange={handleSettingsChange}
-                              className="focus:ring-blue-500 h-4 w-4 text-blue-600 border-gray-300 rounded"
+                              className="focus:ring-blue-500 h-4 w-4 text-blue-600 border-gray-300 dark:border-gray-600 dark:bg-gray-700 rounded"
                             />
                           </div>
                           <div className="ml-3 text-sm">
-                            <label htmlFor="notifications.browser" className="font-medium text-gray-700">
+                            <label htmlFor="notifications.browser" className="font-medium text-gray-700 dark:text-gray-300">
                               Browser-Benachrichtigungen
                             </label>
                           </div>
@@ -381,7 +396,7 @@ const UserProfile = () => {
                 <button
                   type="submit"
                   disabled={settingsLoading}
-                  className="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 min-w-[120px]"
+                  className="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 dark:bg-blue-700 dark:hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 dark:focus:ring-offset-gray-800 disabled:opacity-50 min-w-[120px]"
                 >
                   {settingsLoading ? 'Wird gespeichert...' : 'Einstellungen speichern'}
                 </button>
@@ -391,9 +406,9 @@ const UserProfile = () => {
         </div>
         
         {/* Passwort ändern */}
-        <div className="bg-white shadow rounded-lg overflow-hidden">
-          <div className="px-6 py-5 border-b border-gray-200">
-            <h2 className="text-lg font-medium text-gray-900">Passwort ändern</h2>
+        <div className="bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden">
+          <div className="px-6 py-5 border-b border-gray-200 dark:border-gray-700">
+            <h2 className="text-lg font-medium text-gray-900 dark:text-white">Passwort ändern</h2>
           </div>
           <div className="p-6">
             <PasswordChangeForm />

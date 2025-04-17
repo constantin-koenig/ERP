@@ -1,5 +1,7 @@
 import { Routes, Route, Navigate } from 'react-router-dom'
 import { useAuth } from './context/AuthContext'
+import { ThemeProvider } from './context/ThemeContext'
+import { DashboardProvider } from './context/DashboardContext'
 
 // Layouts
 import MainLayout from './components/layout/MainLayout'
@@ -38,7 +40,6 @@ import SystemLogs from './pages/admin/SystemLogs'
 import TemplateEditor from './pages/admin/TemplateEditor'
 import SystemStats from './pages/admin/SystemStats'
 
-
 // User Settings Pages
 import UserProfile from './pages/profile/UserProfile'
 
@@ -49,62 +50,66 @@ function App() {
   const { user } = useAuth()
 
   return (
-    <Routes>
-      {/* Public Routes */}
-      <Route path="/login" element={!user ? <Login /> : <Navigate to="/" />} />
-      <Route path="/register" element={!user ? <Register /> : <Navigate to="/" />} />
+    <ThemeProvider>
+      <DashboardProvider>
+        <Routes>
+          {/* Public Routes */}
+          <Route path="/login" element={!user ? <Login /> : <Navigate to="/" />} />
+          <Route path="/register" element={!user ? <Register /> : <Navigate to="/" />} />
 
-      {/* Protected Routes */}
-      <Route path="/" element={user ? <MainLayout /> : <Navigate to="/login" />}>
-        <Route index element={<Dashboard />} />
-        
-        {/* Customer Routes */}
-        <Route path="customers">
-          <Route index element={<Customers />} />
-          <Route path="new" element={<CustomerForm />} />
-          <Route path=":id" element={<CustomerDetail />} />
-          <Route path=":id/edit" element={<CustomerForm />} />
-        </Route>
-        
-        {/* Order Routes */}
-        <Route path="orders">
-          <Route index element={<Orders />} />
-          <Route path="new" element={<OrderForm />} />
-          <Route path=":id" element={<OrderDetail />} />
-          <Route path=":id/edit" element={<OrderForm />} />
-        </Route>
-        
-        {/* Time Tracking Routes */}
-        <Route path="time-tracking">
-          <Route index element={<TimeTracking />} />
-          <Route path="new" element={<TimeTrackingForm />} />
-          <Route path=":id/edit" element={<TimeTrackingForm />} />
-        </Route>
-        
-        {/* Invoice Routes */}
-        <Route path="invoices">
-          <Route index element={<Invoices />} />
-          <Route path="new" element={<InvoiceForm />} />
-          <Route path=":id" element={<InvoiceDetail />} />
-          <Route path=":id/edit" element={<InvoiceForm />} />
-        </Route>
-        {/* User Profile Route */}
-        <Route path="profile" element={<UserProfile />} />
+          {/* Protected Routes */}
+          <Route path="/" element={user ? <MainLayout /> : <Navigate to="/login" />}>
+            <Route index element={<Dashboard />} />
+            
+            {/* Customer Routes */}
+            <Route path="customers">
+              <Route index element={<Customers />} />
+              <Route path="new" element={<CustomerForm />} />
+              <Route path=":id" element={<CustomerDetail />} />
+              <Route path=":id/edit" element={<CustomerForm />} />
+            </Route>
+            
+            {/* Order Routes */}
+            <Route path="orders">
+              <Route index element={<Orders />} />
+              <Route path="new" element={<OrderForm />} />
+              <Route path=":id" element={<OrderDetail />} />
+              <Route path=":id/edit" element={<OrderForm />} />
+            </Route>
+            
+            {/* Time Tracking Routes */}
+            <Route path="time-tracking">
+              <Route index element={<TimeTracking />} />
+              <Route path="new" element={<TimeTrackingForm />} />
+              <Route path=":id/edit" element={<TimeTrackingForm />} />
+            </Route>
+            
+            {/* Invoice Routes */}
+            <Route path="invoices">
+              <Route index element={<Invoices />} />
+              <Route path="new" element={<InvoiceForm />} />
+              <Route path=":id" element={<InvoiceDetail />} />
+              <Route path=":id/edit" element={<InvoiceForm />} />
+            </Route>
+            {/* User Profile Route */}
+            <Route path="profile" element={<UserProfile />} />
 
-        {/* Admin Routes mit Layout */}
-        <Route path="admin" element={<AdminLayout />}>
-          <Route index element={<Navigate to="/admin/users" />} />
-          <Route path="users" element={<UserManagement />} />
-          <Route path="settings" element={<SystemSettings />} />
-          <Route path="logs" element={<SystemLogs />} />
-          <Route path="templates" element={<TemplateEditor />} />
-          <Route path="statistics" element={<SystemStats />} />
-        </Route>
-      </Route>
+            {/* Admin Routes mit Layout */}
+            <Route path="admin" element={<AdminLayout />}>
+              <Route index element={<Navigate to="/admin/users" />} />
+              <Route path="users" element={<UserManagement />} />
+              <Route path="settings" element={<SystemSettings />} />
+              <Route path="logs" element={<SystemLogs />} />
+              <Route path="templates" element={<TemplateEditor />} />
+              <Route path="statistics" element={<SystemStats />} />
+            </Route>
+          </Route>
 
-      {/* 404 Route */}
-      <Route path="*" element={<NotFound />} />
-    </Routes>
+          {/* 404 Route */}
+          <Route path="*" element={<NotFound />} />
+        </Routes>
+      </DashboardProvider>
+    </ThemeProvider>
   )
 }
 

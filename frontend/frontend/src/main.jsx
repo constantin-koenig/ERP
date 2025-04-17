@@ -1,4 +1,4 @@
-// src/main.jsx - Angepasst für längere Toast-Anzeigen
+// src/main.jsx - Korrigierte Version
 import React from 'react'
 import ReactDOM from 'react-dom/client'
 import App from './App.jsx'
@@ -11,7 +11,7 @@ import 'react-toastify/dist/ReactToastify.css'
 // Globale Toast-Konfiguration
 const toastContainerConfig = {
   position: "top-right",
-  autoClose: 5000,       // 5 Sekunden
+  autoClose: 5000,
   hideProgressBar: false,
   newestOnTop: true,
   closeOnClick: true,
@@ -19,7 +19,7 @@ const toastContainerConfig = {
   pauseOnFocusLoss: true,
   draggable: true,
   pauseOnHover: true,
-  theme: "light",
+  // Setze hier kein Theme, es wird dynamisch in der App angepasst
 };
 
 ReactDOM.createRoot(document.getElementById('root')).render(

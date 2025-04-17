@@ -2,10 +2,12 @@
 import React, { useState } from 'react';
 import { UserCircleIcon } from '@heroicons/react/outline';
 import { getFullImageUrl } from '../../services/axiosInstance';
+import { useTheme } from '../../context/ThemeContext';
 
 const UserAvatar = ({ user, size = 'md', className = '' }) => {
   const [imageError, setImageError] = useState(false);
-
+  const { isDarkMode } = useTheme();
+  
   // Definiere Größen-Klassen für verschiedene Größen
   const sizeClasses = {
     sm: 'h-8 w-8',
@@ -20,22 +22,13 @@ const UserAvatar = ({ user, size = 'md', className = '' }) => {
   // Konvertiere die Profilbild-URL nur, wenn ein Profilbild vorhanden ist und kein Fehler aufgetreten ist
   const profileImage = !imageError && user?.profileImage ? getFullImageUrl(user.profileImage) : null;
 
-  // Direkter Debug-Output zum Fehlersuchen
-  console.log('User Avatar Details:', {
-    userHasProfileImage: Boolean(user?.profileImage),
-    originalProfileImagePath: user?.profileImage,
-    convertedProfileImageURL: profileImage,
-    imageError,
-    userName: user?.name || 'Unbekannt'
-  });
-
   const handleImageError = () => {
     console.warn('Profilbild konnte nicht geladen werden:', profileImage);
     setImageError(true);
   };
 
   return (
-    <div className={`${sizeClass} rounded-full overflow-hidden bg-gray-100 flex items-center justify-center ${className}`}>
+    <div className={`${sizeClass} rounded-full overflow-hidden ${isDarkMode ? 'bg-gray-700' : 'bg-gray-100'} flex items-center justify-center ${className}`}>
       {profileImage && !imageError ? (
         <img
           src={profileImage}
@@ -44,7 +37,7 @@ const UserAvatar = ({ user, size = 'md', className = '' }) => {
           onError={handleImageError}
         />
       ) : (
-        <UserCircleIcon className="h-full w-full text-gray-300" />
+        <UserCircleIcon className={`h-full w-full ${isDarkMode ? 'text-gray-500' : 'text-gray-300'}`} />
       )}
     </div>
   );

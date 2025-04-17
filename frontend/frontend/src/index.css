@@ -13,13 +13,72 @@
     @apply bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded;
   }
   .form-input {
-    @apply w-full rounded-md border-gray-300 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50;
+    @apply w-full rounded-md border-gray-300 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50 dark:bg-gray-700 dark:border-gray-600 dark:text-white;
   }
   .form-label {
-    @apply block text-sm font-medium text-gray-700 mb-1;
+    @apply block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1;
   }
 }
 
 body {
-  @apply bg-gray-50;
+  @apply bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 transition-colors duration-200;
+}
+
+/* Card-Hintergrund im Dark Mode */
+.dark .bg-white {
+  @apply bg-gray-800 text-white;
+}
+
+/* Tabellen-Header im Dark Mode */
+.dark .bg-gray-50 {
+  @apply bg-gray-700 text-gray-200;
+}
+
+/* Tabellen-Zeilen im Dark Mode */
+.dark .bg-white.divide-y.divide-gray-200 > * {
+  @apply border-gray-700;
+}
+
+/* Inputfelder im Dark Mode */
+.dark input, 
+.dark select, 
+.dark textarea {
+  @apply bg-gray-700 border-gray-600 text-white;
+}
+
+/* Buttons im Dark Mode */
+.dark button.bg-white {
+  @apply bg-gray-700 text-white border-gray-600;
+}
+
+/* Platzhaltertext im Dark Mode */
+.dark ::placeholder {
+  @apply text-gray-400;
+}
+
+/* Spinner im Dark Mode */
+.spinner {
+  @apply inline-block animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-500;
+}
+
+/* Dropdown-Menüs im Dark Mode */
+.dark .origin-top-right.bg-white {
+  @apply bg-gray-800 text-white;
+}
+
+/* Badge-Farben im Dark Mode anpassen */
+.dark .bg-blue-100 {
+  @apply bg-blue-900 text-blue-100;
+}
+
+.dark .bg-green-100 {
+  @apply bg-green-900 text-green-100;
+}
+
+.dark .bg-red-100 {
+  @apply bg-red-900 text-red-100;
+}
+
+.dark .bg-yellow-100 {
+  @apply bg-yellow-900 text-yellow-100;
 }
