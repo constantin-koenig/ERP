@@ -1,4 +1,4 @@
-// src/services/authService.js
+// frontend/frontend/src/services/authService.js (erweitert)
 import axiosInstance from './axiosInstance';
 
 /**
@@ -13,7 +13,6 @@ export const loginUser = async (email, password) => {
     return { success: true, data: response.data };
   } catch (error) {
     console.error("Login error in service:", error);
-    // Wichtig: Wir werfen den Fehler hier, damit er in AuthContext behandelt werden kann
     throw error;
   }
 };
@@ -29,7 +28,6 @@ export const registerUser = async (userData) => {
     return { success: true, data: response.data };
   } catch (error) {
     console.error("Register error in service:", error);
-    // Wichtig: Wir werfen den Fehler hier, damit er in AuthContext behandelt werden kann
     throw error;
   }
 };
@@ -54,6 +52,7 @@ export const getCurrentUser = async () => {
  * @returns {Promise} Promise mit aktualisierten Benutzerdaten
  */
 export const updateUserDetails = async (userData) => {
+  // Diese Funktion gibt direkt die Antwort des Servers zurück, ohne einen erneuten Login zu versuchen
   return axiosInstance.put('/users/me', userData);
 };
 
@@ -63,5 +62,100 @@ export const updateUserDetails = async (userData) => {
  * @returns {Promise} Promise mit Antwort
  */
 export const updatePassword = async (passwordData) => {
-  return axiosInstance.put('/users/updatepassword', passwordData);
+  // Sende nur die wirklich benötigten Daten
+  const payload = {
+    currentPassword: passwordData.currentPassword,
+    newPassword: passwordData.newPassword
+  };
+  
+  return axiosInstance.put('/users/updatepassword', payload);
+};
+
+/**
+ * Profilbild hochladen
+ * @param {FormData} formData - FormData-Objekt mit dem Profilbild
+ * @returns {Promise} Promise mit Antwort
+ */
+export const uploadProfileImage = async (formData) => {
+  return axiosInstance.post('/users/upload-profile-image', formData, {
+    headers: {
+      'Content-Type': 'multipart/form-data'
+    }
+  });
+};
+
+/**
+ * Passwort zurücksetzen anfordern
+ * @param {string} email - E-Mail des Benutzers
+ * @returns {Promise} Promise mit Antwort
+ */
+export const forgotPassword = async (email) => {
+  return axiosInstance.post('/users/forgotpassword', { email });
+};
+
+/**
+ * Passwort zurücksetzen
+ * @param {string} resetToken - Token für das Zurücksetzen des Passworts
+ * @param {string} password - Neues Passwort
+ * @returns {Promise} Promise mit Antwort
+ */
+export const resetPassword = async (resetToken, password) => {
+  return axiosInstance.put(`/users/resetpassword/${resetToken}`, { password });
+};
+
+/**
+ * Konto aktivieren (nach Einladung)
+ * @param {string} activationToken - Aktivierungstoken
+ * @param {string} password - Neues Passwort
+ * @returns {Promise} Promise mit Antwort
+ */
+export const activateAccount = async (activationToken, password) => {
+  return axiosInstance.put(`/users/activate/${activationToken}`, { password });
+};
+
+// Admin-Funktionen
+
+/**
+ * Alle Benutzer abrufen (Admin)
+ * @returns {Promise} Promise mit allen Benutzern
+ */
+export const getUsers = async () => {
+  return axiosInstance.get('/users');
+};
+
+/**
+ * Benutzer nach ID abrufen (Admin)
+ * @param {string} id - Benutzer-ID
+ * @returns {Promise} Promise mit Benutzerdaten
+ */
+export const getUser = async (id) => {
+  return axiosInstance.get(`/users/${id}`);
+};
+
+/**
+ * Benutzer einladen (Admin)
+ * @param {Object} userData - Benutzerdaten für die Einladung
+ * @returns {Promise} Promise mit Antwort
+ */
+export const inviteUser = async (userData) => {
+  return axiosInstance.post('/users', userData);
+};
+
+/**
+ * Benutzer aktualisieren (Admin)
+ * @param {string} id - Benutzer-ID
+ * @param {Object} userData - Aktualisierte Benutzerdaten
+ * @returns {Promise} Promise mit aktualisierten Benutzerdaten
+ */
+export const updateUser = async (id, userData) => {
+  return axiosInstance.put(`/users/${id}`, userData);
+};
+
+/**
+ * Benutzer löschen (Admin)
+ * @param {string} id - Benutzer-ID
+ * @returns {Promise} Promise mit Antwort
+ */
+export const deleteUser = async (id) => {
+  return axiosInstance.delete(`/users/${id}`);
 };

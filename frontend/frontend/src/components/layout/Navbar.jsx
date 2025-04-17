@@ -1,13 +1,15 @@
-// src/components/layout/Navbar.jsx - Korrigierte Version
+// frontend/frontend/src/components/layout/Navbar.jsx
 import { Fragment } from 'react'
 import { Link } from 'react-router-dom'
 import { Menu, Transition } from '@headlessui/react'
 import { 
   MenuIcon, 
   BellIcon, 
-  UserCircleIcon 
+  CogIcon, 
+  LogoutIcon
 } from '@heroicons/react/outline'
 import { useAuth } from '../../context/AuthContext'
+import UserAvatar from '../ui/UserAvatar'
 
 function classNames(...classes) {
   return classes.filter(Boolean).join(' ')
@@ -50,7 +52,7 @@ const Navbar = ({ setSidebarOpen }) => {
                   <div>
                     <Menu.Button className="flex text-sm rounded-full focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
                       <span className="sr-only">Benutzermenü öffnen</span>
-                      <UserCircleIcon className="h-8 w-8 text-gray-400" aria-hidden="true" />
+                      <UserAvatar user={user} size="sm" />
                     </Menu.Button>
                   </div>
                   <Transition
@@ -80,23 +82,34 @@ const Navbar = ({ setSidebarOpen }) => {
                               'block px-4 py-2 text-sm text-gray-700'
                             )}
                           >
-                            Dein Profil
+                            <div className="flex items-center">
+                              <UserAvatar user={user} size="sm" className="mr-3 h-5 w-5" />
+                              Profil & Einstellungen
+                            </div>
                           </Link>
                         )}
                       </Menu.Item>
-                      <Menu.Item>
-                        {({ active }) => (
-                          <Link
-                            to="/settings"
-                            className={classNames(
-                              active ? 'bg-gray-100' : '',
-                              'block px-4 py-2 text-sm text-gray-700'
-                            )}
-                          >
-                            Einstellungen
-                          </Link>
-                        )}
-                      </Menu.Item>
+                      
+                      {/* Admin-Menüpunkt, nur für Admins anzeigen */}
+                      {user?.role === 'admin' && (
+                        <Menu.Item>
+                          {({ active }) => (
+                            <Link
+                              to="/admin/users"
+                              className={classNames(
+                                active ? 'bg-gray-100' : '',
+                                'block px-4 py-2 text-sm text-gray-700'
+                              )}
+                            >
+                              <div className="flex items-center">
+                                <CogIcon className="mr-3 h-5 w-5 text-gray-400" />
+                                Administration
+                              </div>
+                            </Link>
+                          )}
+                        </Menu.Item>
+                      )}
+                      
                       <Menu.Item>
                         {({ active }) => (
                           <button
@@ -106,7 +119,10 @@ const Navbar = ({ setSidebarOpen }) => {
                               'block w-full text-left px-4 py-2 text-sm text-gray-700'
                             )}
                           >
-                            Abmelden
+                            <div className="flex items-center">
+                              <LogoutIcon className="mr-3 h-5 w-5 text-gray-400" />
+                              Abmelden
+                            </div>
                           </button>
                         )}
                       </Menu.Item>

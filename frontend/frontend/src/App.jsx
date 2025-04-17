@@ -30,6 +30,18 @@ import Invoices from './pages/invoices/Invoices'
 import InvoiceDetail from './pages/invoices/InvoiceDetail'
 import InvoiceForm from './pages/invoices/InvoiceForm'
 
+// System Settings Pages
+import AdminLayout from './components/admin/AdminLayout'
+import UserManagement from './pages/admin/UserManagement'
+import SystemSettings from './pages/admin/SystemSettings'
+import SystemLogs from './pages/admin/SystemLogs'
+import TemplateEditor from './pages/admin/TemplateEditor'
+import SystemStats from './pages/admin/SystemStats'
+
+
+// User Settings Pages
+import UserProfile from './pages/profile/UserProfile'
+
 // Error Pages
 import NotFound from './pages/NotFound'
 
@@ -75,6 +87,18 @@ function App() {
           <Route path="new" element={<InvoiceForm />} />
           <Route path=":id" element={<InvoiceDetail />} />
           <Route path=":id/edit" element={<InvoiceForm />} />
+        </Route>
+        {/* User Profile Route */}
+        <Route path="profile" element={<UserProfile />} />
+
+        {/* Admin Routes mit Layout */}
+        <Route path="admin" element={<AdminLayout />}>
+          <Route index element={<Navigate to="/admin/users" />} />
+          <Route path="users" element={<UserManagement />} />
+          <Route path="settings" element={<SystemSettings />} />
+          <Route path="logs" element={<SystemLogs />} />
+          <Route path="templates" element={<TemplateEditor />} />
+          <Route path="statistics" element={<SystemStats />} />
         </Route>
       </Route>
 

@@ -1,6 +1,6 @@
-// src/context/AuthContext.jsx
+// frontend/frontend/src/context/AuthContext.jsx (korrigiert)
 import { createContext, useContext, useState, useEffect } from 'react'
-import { jwtDecode } from 'jwt-decode'  // Für neuere jwt-decode Versionen
+import { jwtDecode } from 'jwt-decode'
 import { toast } from 'react-toastify'
 import { loginUser, registerUser, getCurrentUser } from '../services/authService'
 
@@ -24,9 +24,9 @@ const toastConfig = {
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null)
   const [token, setToken] = useState(localStorage.getItem('token') || null)
-  const [loading, setLoading] = useState(false) // Wichtig: Initial nicht laden
+  const [loading, setLoading] = useState(false)
   const [authError, setAuthError] = useState(null)
-  const [initializing, setInitializing] = useState(true) // App-Initialisierung läuft
+  const [initializing, setInitializing] = useState(true)
 
   // App-Initialisierung: Token prüfen und Benutzer laden
   useEffect(() => {
@@ -46,7 +46,7 @@ export const AuthProvider = ({ children }) => {
             setUser(decoded) // Erstmal aus Token setzen
             
             try {
-              // Optional: Vollständige Benutzerinformationen vom Server abrufen
+              // Vollständige Benutzerinformationen vom Server abrufen
               const userResponse = await getCurrentUser()
               if (userResponse.success) {
                 setUser(userResponse.data.data || decoded)
@@ -62,7 +62,7 @@ export const AuthProvider = ({ children }) => {
         }
       }
       
-      setInitializing(false) // Initialisierung abgeschlossen
+      setInitializing(false)
     }
 
     initAuth()
@@ -70,7 +70,7 @@ export const AuthProvider = ({ children }) => {
 
   const handleLogin = async (email, password) => {
     setLoading(true)
-    setAuthError(null) // Fehler zurücksetzen
+    setAuthError(null)
     
     try {
       const result = await loginUser(email, password)
@@ -87,7 +87,6 @@ export const AuthProvider = ({ children }) => {
           setUser(decoded)
         } catch (error) {
           console.error("Fehler beim Dekodieren des Tokens:", error)
-          // Wir fahren trotzdem fort, da der Server-Token gültig sein sollte
         }
         
         toast.success('Erfolgreich angemeldet!', toastConfig)
@@ -96,20 +95,17 @@ export const AuthProvider = ({ children }) => {
         throw new Error("Ungültige Antwort vom Server")
       }
     } catch (error) {
-      // Sehr wichtig: Die Fehlerbehandlung im Context abfangen
       console.error("Login fehlgeschlagen:", error)
       
-      // Fehlertext extrahieren
       const errorMessage = error.response?.data?.message || 
                         'Anmeldung fehlgeschlagen. Bitte überprüfe deine E-Mail und dein Passwort.'
       
-      // Fehler im Zustand speichern UND als Toast anzeigen
       setAuthError(errorMessage)
       toast.error(errorMessage, toastConfig)
       
       return false
     } finally {
-      setLoading(false) // Immer den Ladezustand zurücksetzen
+      setLoading(false)
     }
   }
 
@@ -161,11 +157,16 @@ export const AuthProvider = ({ children }) => {
     toast.info('Du wurdest abgemeldet.', toastConfig)
   }
 
+  // NEUE METHODE: Benutzerdaten aktualisieren ohne erneute Anmeldung
+  const updateSession = (userData) => {
+    setUser(userData)
+  }
+
   const clearError = () => {
     setAuthError(null)
   }
 
-  // Context-Provider-Werte
+  // Aktualisierte Context-Provider-Werte
   const contextValue = {
     user,
     token,
@@ -175,7 +176,8 @@ export const AuthProvider = ({ children }) => {
     login: handleLogin,
     register: handleRegister,
     logout: handleLogout,
-    clearError
+    clearError,
+    updateSession // Neue Methode hinzufügen
   }
 
   return (
@@ -186,3 +188,5 @@ export const AuthProvider = ({ children }) => {
 }
 
 export default AuthProvider
+
+

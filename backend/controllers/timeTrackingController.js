@@ -100,6 +100,7 @@ exports.createTimeTracking = async (req, res) => {
       data: timeTracking
     });
   } catch (error) {
+    console.log(error);
     res.status(500).json({
       success: false,
       message: 'Serverfehler'
