@@ -1,3 +1,4 @@
+// src/pages/time/TimeTrackingForm.jsx - Mit Dark Mode Support
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { toast } from 'react-toastify'
@@ -7,6 +8,7 @@ import { createTimeTracking, getTimeTracking, updateTimeTracking } from '../../s
 import { getOrders } from '../../services/orderService'
 import { ArrowLeftIcon } from '@heroicons/react/outline'
 import { format } from 'date-fns'
+import { useTheme } from '../../context/ThemeContext'
 
 // Funktion zum Formatieren von Datum und Zeit für HTML-Inputfelder
 const formatDateTimeForInput = (dateString) => {
@@ -32,6 +34,7 @@ const TimeTrackingForm = () => {
   const location = useLocation()
   const queryParams = new URLSearchParams(location.search)
   const orderId = queryParams.get('orderId')
+  const { isDarkMode } = useTheme()
 
   const [orders, setOrders] = useState([])
   const [initialValues, setInitialValues] = useState({
@@ -100,21 +103,21 @@ const TimeTrackingForm = () => {
     return (
       <div className="text-center py-10">
         <div className="spinner"></div>
-        <p className="mt-2 text-gray-600">Daten werden geladen...</p>
+        <p className={`mt-2 ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>Daten werden geladen...</p>
       </div>
     )
   }
 
   return (
-    <div className="bg-white shadow overflow-hidden sm:rounded-lg p-6">
+    <div className="bg-white dark:bg-gray-800 shadow overflow-hidden sm:rounded-lg p-6">
       <div className="flex justify-between items-center mb-6">
-        <h2 className="text-xl font-semibold text-gray-900">
+        <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
           {id ? 'Zeiteintrag bearbeiten' : 'Neue Zeit erfassen'}
         </h2>
         <button
           type="button"
           onClick={() => navigate(-1)}
-          className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
+          className="inline-flex items-center px-3 py-2 border border-gray-300 dark:border-gray-600 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600"
         >
           <ArrowLeftIcon className="-ml-0.5 mr-2 h-4 w-4" />
           Zurück
@@ -131,7 +134,7 @@ const TimeTrackingForm = () => {
           <Form className="space-y-6">
             <div className="grid grid-cols-1 gap-y-6 gap-x-4 sm:grid-cols-6">
               <div className="sm:col-span-3">
-                <label htmlFor="order" className="block text-sm font-medium text-gray-700">
+                <label htmlFor="order" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
                   Auftrag
                 </label>
                 <div className="mt-1">
@@ -139,7 +142,7 @@ const TimeTrackingForm = () => {
                     as="select"
                     name="order"
                     id="order"
-                    className="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 rounded-md"
+                    className="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-md"
                   >
                     <option value="">Keinem Auftrag zuordnen</option>
                     {orders.map(order => (
@@ -153,7 +156,7 @@ const TimeTrackingForm = () => {
               </div>
 
               <div className="sm:col-span-6">
-                <label htmlFor="description" className="block text-sm font-medium text-gray-700">
+                <label htmlFor="description" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
                   Beschreibung *
                 </label>
                 <div className="mt-1">
@@ -162,16 +165,16 @@ const TimeTrackingForm = () => {
                     name="description"
                     id="description"
                     rows={3}
-                    className={`shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 rounded-md ${
-                      errors.description && touched.description ? 'border-red-300' : ''
+                    className={`shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-md ${
+                      errors.description && touched.description ? 'border-red-300 dark:border-red-500' : ''
                     }`}
                   />
-                  <ErrorMessage name="description" component="div" className="mt-1 text-sm text-red-600" />
+                  <ErrorMessage name="description" component="div" className="mt-1 text-sm text-red-600 dark:text-red-400" />
                 </div>
               </div>
 
               <div className="sm:col-span-3">
-                <label htmlFor="startTime" className="block text-sm font-medium text-gray-700">
+                <label htmlFor="startTime" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
                   Startzeit *
                 </label>
                 <div className="mt-1">
@@ -179,16 +182,16 @@ const TimeTrackingForm = () => {
                     type="datetime-local"
                     name="startTime"
                     id="startTime"
-                    className={`shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 rounded-md ${
-                      errors.startTime && touched.startTime ? 'border-red-300' : ''
+                    className={`shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-md ${
+                      errors.startTime && touched.startTime ? 'border-red-300 dark:border-red-500' : ''
                     }`}
                   />
-                  <ErrorMessage name="startTime" component="div" className="mt-1 text-sm text-red-600" />
+                  <ErrorMessage name="startTime" component="div" className="mt-1 text-sm text-red-600 dark:text-red-400" />
                 </div>
               </div>
 
               <div className="sm:col-span-3">
-                <label htmlFor="endTime" className="block text-sm font-medium text-gray-700">
+                <label htmlFor="endTime" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
                   Endzeit *
                 </label>
                 <div className="mt-1">
@@ -196,11 +199,11 @@ const TimeTrackingForm = () => {
                     type="datetime-local"
                     name="endTime"
                     id="endTime"
-                    className={`shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 rounded-md ${
-                      errors.endTime && touched.endTime ? 'border-red-300' : ''
+                    className={`shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-md ${
+                      errors.endTime && touched.endTime ? 'border-red-300 dark:border-red-500' : ''
                     }`}
                   />
-                  <ErrorMessage name="endTime" component="div" className="mt-1 text-sm text-red-600" />
+                  <ErrorMessage name="endTime" component="div" className="mt-1 text-sm text-red-600 dark:text-red-400" />
                 </div>
               </div>
 
@@ -216,7 +219,7 @@ const TimeTrackingForm = () => {
                     
                     return (
                       <div className="sm:col-span-6">
-                        <div className="mt-1 text-sm text-gray-700 bg-gray-100 p-3 rounded">
+                        <div className="mt-1 text-sm text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 p-3 rounded">
                           <strong>Berechnete Dauer:</strong> {hours}h {mins}min ({diffMins} Minuten)
                         </div>
                       </div>
@@ -233,14 +236,14 @@ const TimeTrackingForm = () => {
                 <button
                   type="button"
                   onClick={() => navigate(-1)}
-                  className="bg-white py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                  className="bg-white dark:bg-gray-700 py-2 px-4 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 dark:focus:ring-offset-gray-800"
                 >
                   Abbrechen
                 </button>
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className="ml-3 inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                  className="ml-3 inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 dark:bg-blue-700 dark:hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 dark:focus:ring-offset-gray-800 disabled:opacity-50"
                 >
                   {isSubmitting ? 'Wird gespeichert...' : id ? 'Aktualisieren' : 'Erstellen'}
                 </button>

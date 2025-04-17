@@ -1,3 +1,4 @@
+// src/pages/time/TimeTracking.jsx - Mit Dark Mode Support
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { toast } from 'react-toastify'
@@ -5,10 +6,13 @@ import { getTimeTrackings, deleteTimeTracking } from '../../services/timeTrackin
 import { PlusIcon, PencilIcon, TrashIcon } from '@heroicons/react/outline'
 import { format } from 'date-fns'
 import { de } from 'date-fns/locale'
+import ResponsiveTable from '../../components/ui/ResponsiveTable'
+import { useTheme } from '../../context/ThemeContext'
 
 const TimeTracking = () => {
   const [timeEntries, setTimeEntries] = useState([])
   const [loading, setLoading] = useState(true)
+  const { isDarkMode } = useTheme()
 
   useEffect(() => {
     fetchTimeEntries()
@@ -26,7 +30,12 @@ const TimeTracking = () => {
     }
   }
 
-  const handleDelete = async (id) => {
+  const handleDelete = async (id, isBilled) => {
+    if (isBilled) {
+      toast.warning('Abgerechnete Zeiten können nicht gelöscht werden')
+      return
+    }
+    
     if (window.confirm('Möchten Sie diesen Zeiteintrag wirklich löschen?')) {
       try {
         await deleteTimeTracking(id)
@@ -56,157 +65,227 @@ const TimeTracking = () => {
     }
   }
 
+  const formatDuration = (minutes) => {
+    if (!minutes && minutes !== 0) return '-'
+    return `${Math.floor(minutes / 60)}h ${minutes % 60}min`
+  }
+
+  // Spalten-Definition für die Tabelle
+  const columns = [
+    {
+      header: 'Datum',
+      accessor: 'startTime',
+      cell: (row) => (
+        <div className="text-sm text-gray-900 dark:text-white">
+          {formatDateDisplay(row.startTime)}
+        </div>
+      )
+    },
+    {
+      header: 'Auftrag',
+      accessor: 'order',
+      cell: (row) => (
+        <div className="text-sm text-gray-900 dark:text-white">
+          {row.order ? (
+            typeof row.order === 'object' ? (
+              <Link to={`/orders/${row.order._id}`} className="text-blue-600 dark:text-blue-400 hover:text-blue-900 dark:hover:text-blue-300">
+                {row.order.orderNumber}
+              </Link>
+            ) : (
+              <Link to={`/orders/${row.order}`} className="text-blue-600 dark:text-blue-400 hover:text-blue-900 dark:hover:text-blue-300">
+                Auftrag anzeigen
+              </Link>
+            )
+          ) : (
+            '-'
+          )}
+        </div>
+      )
+    },
+    {
+      header: 'Beschreibung',
+      accessor: 'description',
+      cell: (row) => (
+        <div className="text-sm text-gray-900 dark:text-white max-w-xs truncate">
+          {row.description}
+        </div>
+      ),
+      className: 'hidden md:table-cell'
+    },
+    {
+      header: 'Zeit',
+      accessor: 'duration',
+      cell: (row) => (
+        <div className="text-sm text-gray-500 dark:text-gray-400">
+          {formatTimeDisplay(row.startTime)} - {formatTimeDisplay(row.endTime)}
+        </div>
+      ),
+      className: 'hidden lg:table-cell'
+    },
+    {
+      header: 'Dauer',
+      accessor: 'durationFormatted',
+      cell: (row) => (
+        <div className="text-sm text-gray-500 dark:text-gray-400">
+          {formatDuration(row.duration)}
+        </div>
+      )
+    },
+    {
+      header: 'Abgerechnet',
+      accessor: 'billed',
+      cell: (row) => (
+        <div className="text-center">
+          <span
+            className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+              row.billed
+                ? isDarkMode ? 'bg-green-900 text-green-100' : 'bg-green-100 text-green-800'
+                : isDarkMode ? 'bg-yellow-900 text-yellow-100' : 'bg-yellow-100 text-yellow-800'
+            }`}
+          >
+            {row.billed ? 'Ja' : 'Nein'}
+          </span>
+        </div>
+      ),
+      className: 'text-center hidden sm:table-cell'
+    },
+    {
+      header: 'Aktionen',
+      accessor: 'actions',
+      cell: (row) => (
+        <div className="text-right text-sm font-medium flex justify-end space-x-3">
+          <Link
+            to={`/time-tracking/${row._id}/edit`}
+            className="text-blue-600 dark:text-blue-400 hover:text-blue-900 dark:hover:text-blue-300"
+            title="Bearbeiten"
+          >
+            <PencilIcon className="h-5 w-5" />
+          </Link>
+          <button
+            onClick={() => handleDelete(row._id, row.billed)}
+            className={`${
+              row.billed 
+                ? 'text-gray-400 dark:text-gray-500 cursor-not-allowed' 
+                : 'text-red-600 dark:text-red-400 hover:text-red-900 dark:hover:text-red-300'
+            }`}
+            disabled={row.billed}
+            title={row.billed ? 'Abgerechnete Zeiten können nicht gelöscht werden' : 'Löschen'}
+          >
+            <TrashIcon className="h-5 w-5" />
+          </button>
+        </div>
+      ),
+      className: 'text-right'
+    }
+  ]
+
+  // Render-Funktion für mobile Ansicht
+  const renderMobileRow = (entry) => (
+    <div className="px-4">
+      <div className="flex justify-between items-center mb-2">
+        <div className="text-lg font-medium text-gray-900 dark:text-white">
+          {formatDateDisplay(entry.startTime)}
+        </div>
+        <div className="flex space-x-2">
+          <Link
+            to={`/time-tracking/${entry._id}/edit`}
+            className="text-blue-600 dark:text-blue-400 hover:text-blue-900 dark:hover:text-blue-300"
+          >
+            <PencilIcon className="h-5 w-5" />
+          </Link>
+          <button
+            onClick={() => handleDelete(entry._id, entry.billed)}
+            className={`${
+              entry.billed 
+                ? 'text-gray-400 dark:text-gray-500 cursor-not-allowed' 
+                : 'text-red-600 dark:text-red-400 hover:text-red-900 dark:hover:text-red-300'
+            }`}
+            disabled={entry.billed}
+          >
+            <TrashIcon className="h-5 w-5" />
+          </button>
+        </div>
+      </div>
+
+      <p className="text-sm text-gray-600 dark:text-gray-400">
+        <span className="font-medium">Beschreibung:</span> {entry.description}
+      </p>
+      
+      {entry.order && (
+        <p className="text-sm text-gray-600 dark:text-gray-400">
+          <span className="font-medium">Auftrag:</span>{' '}
+          {typeof entry.order === 'object' ? (
+            <Link to={`/orders/${entry.order._id}`} className="text-blue-600 dark:text-blue-400">
+              {entry.order.orderNumber}
+            </Link>
+          ) : (
+            <Link to={`/orders/${entry.order}`} className="text-blue-600 dark:text-blue-400">
+              Auftrag anzeigen
+            </Link>
+          )}
+        </p>
+      )}
+      
+      <p className="text-sm text-gray-600 dark:text-gray-400">
+        <span className="font-medium">Zeit:</span> {formatTimeDisplay(entry.startTime)} - {formatTimeDisplay(entry.endTime)}
+      </p>
+      
+      <p className="text-sm text-gray-600 dark:text-gray-400">
+        <span className="font-medium">Dauer:</span> {formatDuration(entry.duration)}
+      </p>
+      
+      <p className="text-sm text-gray-600 dark:text-gray-400">
+        <span className="font-medium">Abgerechnet:</span>{' '}
+        <span
+          className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+            entry.billed
+              ? isDarkMode ? 'bg-green-900 text-green-100' : 'bg-green-100 text-green-800'
+              : isDarkMode ? 'bg-yellow-900 text-yellow-100' : 'bg-yellow-100 text-yellow-800'
+          }`}
+        >
+          {entry.billed ? 'Ja' : 'Nein'}
+        </span>
+      </p>
+    </div>
+  )
+
+  // Leerer Zustand
+  const emptyState = (
+    <div className="bg-white dark:bg-gray-800 shadow overflow-hidden sm:rounded-md p-6 text-center">
+      <p className="text-gray-500 dark:text-gray-400">Keine Zeiteinträge gefunden.</p>
+      <Link
+        to="/time-tracking/new"
+        className="mt-2 inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-blue-700 dark:text-blue-400 bg-blue-100 dark:bg-blue-900 hover:bg-blue-200 dark:hover:bg-blue-800"
+      >
+        Ersten Zeiteintrag anlegen
+      </Link>
+    </div>
+  )
+
   return (
-    <div className="container mx-auto px-4 sm:px-8">
-      <div className="py-8">
-        <div className="flex justify-between items-center mb-4">
-          <h2 className="text-2xl font-semibold text-gray-900">Zeiterfassung</h2>
+    <div className="container mx-auto px-2 sm:px-4 lg:px-6">
+      <div className="py-4 sm:py-6 lg:py-8">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 space-y-3 sm:space-y-0">
+          <h2 className={`text-2xl font-semibold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Zeiterfassung</h2>
           <Link
             to="/time-tracking/new"
-            className="flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700"
+            className="flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 dark:bg-blue-700 dark:hover:bg-blue-600 min-w-[160px] justify-center"
           >
             <PlusIcon className="-ml-1 mr-2 h-5 w-5" />
             Neue Zeit erfassen
           </Link>
         </div>
 
-        {loading ? (
-          <div className="text-center py-10">
-            <div className="spinner"></div>
-            <p className="mt-2 text-gray-600">Zeiteinträge werden geladen...</p>
-          </div>
-        ) : timeEntries.length === 0 ? (
-          <div className="bg-white shadow overflow-hidden sm:rounded-md p-6 text-center">
-            <p className="text-gray-500">Keine Zeiteinträge gefunden.</p>
-            <Link
-              to="/time-tracking/new"
-              className="mt-2 inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-blue-700 bg-blue-100 hover:bg-blue-200"
-            >
-              Ersten Zeiteintrag anlegen
-            </Link>
-          </div>
-        ) : (
-          <div className="shadow overflow-hidden border-b border-gray-200 sm:rounded-lg">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th
-                    scope="col"
-                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                  >
-                    Datum
-                  </th>
-                  <th
-                    scope="col"
-                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                  >
-                    Auftrag
-                  </th>
-                  <th
-                    scope="col"
-                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                  >
-                    Beschreibung
-                  </th>
-                  <th
-                    scope="col"
-                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                  >
-                    Start - Ende
-                  </th>
-                  <th
-                    scope="col"
-                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                  >
-                    Dauer
-                  </th>
-                  <th
-                    scope="col"
-                    className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider"
-                  >
-                    Abgerechnet
-                  </th>
-                  <th
-                    scope="col"
-                    className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider"
-                  >
-                    Aktionen
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {timeEntries.map((entry) => (
-                  <tr key={entry._id}>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">
-                        {formatDateDisplay(entry.startTime)}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">
-                        {entry.order ? (
-                          typeof entry.order === 'object' ? (
-                            <Link to={`/orders/${entry.order._id}`} className="text-blue-600 hover:text-blue-900">
-                              {entry.order.orderNumber}
-                            </Link>
-                          ) : (
-                            <Link to={`/orders/${entry.order}`} className="text-blue-600 hover:text-blue-900">
-                              Auftrag anzeigen
-                            </Link>
-                          )
-                        ) : (
-                          '-'
-                        )}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">{entry.description}</div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">
-                        {formatTimeDisplay(entry.startTime)} - {formatTimeDisplay(entry.endTime)}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">
-                        {entry.duration
-                          ? `${Math.floor(entry.duration / 60)}h ${entry.duration % 60}min`
-                          : '-'}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-center">
-                      <span
-                        className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                          entry.billed
-                            ? 'bg-green-100 text-green-800'
-                            : 'bg-yellow-100 text-yellow-800'
-                        }`}
-                      >
-                        {entry.billed ? 'Ja' : 'Nein'}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                      <Link
-                        to={`/time-tracking/${entry._id}/edit`}
-                        className="text-blue-600 hover:text-blue-900 mr-4"
-                      >
-                        <PencilIcon className="h-5 w-5 inline" />
-                      </Link>
-                      <button
-                        onClick={() => handleDelete(entry._id)}
-                        className="text-red-600 hover:text-red-900"
-                        disabled={entry.billed}
-                        title={entry.billed ? 'Abgerechnete Zeiten können nicht gelöscht werden' : ''}
-                      >
-                        <TrashIcon className={`h-5 w-5 inline ${entry.billed ? 'opacity-50 cursor-not-allowed' : ''}`} />
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
+        <div className="bg-white dark:bg-gray-800 shadow overflow-hidden sm:rounded-lg">
+          <ResponsiveTable 
+            columns={columns}
+            data={timeEntries}
+            renderMobileRow={renderMobileRow}
+            isLoading={loading}
+            emptyState={emptyState}
+            darkMode={isDarkMode}
+          />
+        </div>
       </div>
     </div>
   )

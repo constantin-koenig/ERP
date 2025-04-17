@@ -1,9 +1,9 @@
-// src/pages/customers/Customers.jsx - Mit Dark Mode Support
+// src/pages/customers/Customers.jsx - Mit Dark Mode Support und Details-Button
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { toast } from 'react-toastify'
 import { getCustomers, deleteCustomer } from '../../services/customerService'
-import { PlusIcon, PencilIcon, TrashIcon } from '@heroicons/react/outline'
+import { PlusIcon, PencilIcon, TrashIcon, EyeIcon } from '@heroicons/react/outline'
 import ResponsiveTable from '../../components/ui/ResponsiveTable'
 import { useTheme } from '../../context/ThemeContext'
 
@@ -64,7 +64,9 @@ const Customers = () => {
       header: 'E-Mail',
       accessor: 'email',
       cell: (row) => (
-        <div className="text-sm text-gray-500 dark:text-gray-400">{row.email || '-'}</div>
+        <div className="text-sm text-gray-500 dark:text-gray-400">
+          {row.email || '-'}
+        </div>
       ),
       className: 'hidden lg:table-cell' // Verstecken auf mittleren Bildschirmen, zeigen auf großen
     },
@@ -80,18 +82,27 @@ const Customers = () => {
       header: 'Aktionen',
       accessor: 'actions',
       cell: (row) => (
-        <div className="text-right text-sm font-medium flex justify-end">
+        <div className="text-right text-sm font-medium flex justify-end space-x-3">
+          <Link
+            to={`/customers/${row._id}`}
+            className="text-blue-600 dark:text-blue-400 hover:text-blue-900 dark:hover:text-blue-300"
+            title="Details anzeigen"
+          >
+            <EyeIcon className="h-5 w-5" />
+          </Link>
           <Link
             to={`/customers/${row._id}/edit`}
-            className="text-blue-600 dark:text-blue-400 hover:text-blue-900 dark:hover:text-blue-300 mr-4"
+            className="text-blue-600 dark:text-blue-400 hover:text-blue-900 dark:hover:text-blue-300"
+            title="Bearbeiten"
           >
-            <PencilIcon className="h-5 w-5 inline" />
+            <PencilIcon className="h-5 w-5" />
           </Link>
           <button
             onClick={() => handleDelete(row._id)}
             className="text-red-600 dark:text-red-400 hover:text-red-900 dark:hover:text-red-300"
+            title="Löschen"
           >
-            <TrashIcon className="h-5 w-5 inline" />
+            <TrashIcon className="h-5 w-5" />
           </button>
         </div>
       ),
@@ -108,6 +119,12 @@ const Customers = () => {
         </Link>
         <div className="flex space-x-2">
           <Link
+            to={`/customers/${customer._id}`}
+            className="text-blue-600 dark:text-blue-400 hover:text-blue-900 dark:hover:text-blue-300"
+          >
+            <EyeIcon className="h-5 w-5" />
+          </Link>
+          <Link
             to={`/customers/${customer._id}/edit`}
             className="text-blue-600 dark:text-blue-400 hover:text-blue-900 dark:hover:text-blue-300"
           >
@@ -121,7 +138,7 @@ const Customers = () => {
           </button>
         </div>
       </div>
-      
+
       {customer.contactPerson && (
         <p className="text-sm text-gray-600 dark:text-gray-400">
           <span className="font-medium">Kontakt:</span> {customer.contactPerson}
@@ -162,7 +179,7 @@ const Customers = () => {
           <h2 className={`text-2xl font-semibold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Kunden</h2>
           <Link
             to="/customers/new"
-            className="flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 dark:bg-blue-700 dark:hover:bg-blue-600"
+            className="flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 dark:bg-blue-700 dark:hover:bg-blue-600 min-w-[140px] justify-center"
           >
             <PlusIcon className="-ml-1 mr-2 h-5 w-5" />
             Neuer Kunde

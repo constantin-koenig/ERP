@@ -1,4 +1,4 @@
-// src/pages/invoices/InvoiceForm.jsx
+// src/pages/invoices/InvoiceForm.jsx - Mit Dark Mode Support
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { toast } from 'react-toastify'
@@ -9,6 +9,7 @@ import { getCustomers } from '../../services/customerService'
 import { getOrders } from '../../services/orderService'
 import { getTimeTrackings } from '../../services/timeTrackingService'
 import { ArrowLeftIcon, TrashIcon, PlusIcon } from '@heroicons/react/outline'
+import { useTheme } from '../../context/ThemeContext'
 
 const InvoiceSchema = Yup.object().shape({
   customer: Yup.string().required('Kunde ist erforderlich'),
@@ -32,6 +33,8 @@ const InvoiceSchema = Yup.object().shape({
 const InvoiceForm = () => {
   const { id } = useParams()
   const navigate = useNavigate()
+  const { isDarkMode } = useTheme()
+  
   const [customers, setCustomers] = useState([])
   const [orders, setOrders] = useState([])
   const [timeEntries, setTimeEntries] = useState([])
@@ -213,21 +216,21 @@ const InvoiceForm = () => {
     return (
       <div className="text-center py-10">
         <div className="spinner"></div>
-        <p className="mt-2 text-gray-600">Daten werden geladen...</p>
+        <p className={`mt-2 ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>Daten werden geladen...</p>
       </div>
     )
   }
 
   return (
-    <div className="bg-white shadow overflow-hidden sm:rounded-lg p-6">
+    <div className="bg-white dark:bg-gray-800 shadow overflow-hidden sm:rounded-lg p-6">
       <div className="flex justify-between items-center mb-6">
-        <h2 className="text-xl font-semibold text-gray-900">
+        <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
           {id ? 'Rechnung bearbeiten' : 'Neue Rechnung erstellen'}
         </h2>
         <button
           type="button"
           onClick={() => navigate(-1)}
-          className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
+          className="inline-flex items-center px-3 py-2 border border-gray-300 dark:border-gray-600 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600"
         >
           <ArrowLeftIcon className="-ml-0.5 mr-2 h-4 w-4" />
           Zurück
@@ -244,7 +247,7 @@ const InvoiceForm = () => {
           <Form className="space-y-6">
             <div className="grid grid-cols-1 gap-y-6 gap-x-4 sm:grid-cols-6">
               <div className="sm:col-span-3">
-                <label htmlFor="invoiceNumber" className="block text-sm font-medium text-gray-700">
+                <label htmlFor="invoiceNumber" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
                   Rechnungsnummer
                 </label>
                 <div className="mt-1">
@@ -253,16 +256,16 @@ const InvoiceForm = () => {
                     name="invoiceNumber"
                     id="invoiceNumber"
                     placeholder="Wird automatisch generiert"
-                    className="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 rounded-md"
+                    className="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-md"
                   />
-                  <p className="mt-1 text-xs text-gray-500">
+                  <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
                     Leer lassen für automatische Generierung
                   </p>
                 </div>
               </div>
 
               <div className="sm:col-span-3">
-                <label htmlFor="customer" className="block text-sm font-medium text-gray-700">
+                <label htmlFor="customer" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
                   Kunde *
                 </label>
                 <div className="mt-1">
@@ -270,8 +273,8 @@ const InvoiceForm = () => {
                     as="select"
                     name="customer"
                     id="customer"
-                    className={`shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 rounded-md ${
-                      errors.customer && touched.customer ? 'border-red-300' : ''
+                    className={`shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-md ${
+                      errors.customer && touched.customer ? 'border-red-300 dark:border-red-500' : ''
                     }`}
                     onChange={(e) => handleCustomerChange(e, setFieldValue)}
                   >
@@ -282,12 +285,12 @@ const InvoiceForm = () => {
                       </option>
                     ))}
                   </Field>
-                  <ErrorMessage name="customer" component="div" className="mt-1 text-sm text-red-600" />
+                  <ErrorMessage name="customer" component="div" className="mt-1 text-sm text-red-600 dark:text-red-400" />
                 </div>
               </div>
 
               <div className="sm:col-span-3">
-                <label htmlFor="order" className="block text-sm font-medium text-gray-700">
+                <label htmlFor="order" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
                   Auftrag
                 </label>
                 <div className="mt-1">
@@ -295,7 +298,7 @@ const InvoiceForm = () => {
                     as="select"
                     name="order"
                     id="order"
-                    className="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 rounded-md"
+                    className="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-md"
                     onChange={(e) => handleOrderChange(e, setFieldValue)}
                     disabled={!selectedCustomerId}
                   >
@@ -308,7 +311,7 @@ const InvoiceForm = () => {
                     ))}
                   </Field>
                   {!selectedCustomerId && (
-                    <p className="mt-1 text-xs text-gray-500">
+                    <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
                       Bitte zuerst einen Kunden auswählen
                     </p>
                   )}
@@ -316,7 +319,7 @@ const InvoiceForm = () => {
               </div>
 
               <div className="sm:col-span-3">
-                <label htmlFor="status" className="block text-sm font-medium text-gray-700">
+                <label htmlFor="status" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
                   Status
                 </label>
                 <div className="mt-1">
@@ -324,7 +327,7 @@ const InvoiceForm = () => {
                     as="select"
                     name="status"
                     id="status"
-                    className="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 rounded-md"
+                    className="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-md"
                   >
                     <option value="erstellt">Erstellt</option>
                     <option value="versendet">Versendet</option>
@@ -335,7 +338,7 @@ const InvoiceForm = () => {
               </div>
               
               <div className="sm:col-span-3">
-                <label htmlFor="issueDate" className="block text-sm font-medium text-gray-700">
+                <label htmlFor="issueDate" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
                   Rechnungsdatum
                 </label>
                 <div className="mt-1">
@@ -343,13 +346,13 @@ const InvoiceForm = () => {
                     type="date"
                     name="issueDate"
                     id="issueDate"
-                    className="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 rounded-md"
+                    className="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-md"
                   />
                 </div>
               </div>
 
               <div className="sm:col-span-3">
-                <label htmlFor="dueDate" className="block text-sm font-medium text-gray-700">
+                <label htmlFor="dueDate" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
                   Fälligkeitsdatum
                 </label>
                 <div className="mt-1">
@@ -357,13 +360,13 @@ const InvoiceForm = () => {
                     type="date"
                     name="dueDate"
                     id="dueDate"
-                    className="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 rounded-md"
+                    className="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-md"
                   />
                 </div>
               </div>
               
               <div className="sm:col-span-6">
-                <h3 className="text-lg font-medium text-gray-900 mb-3">Rechnungspositionen</h3>
+                <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-3">Rechnungspositionen</h3>
                 <FieldArray name="items">
                   {({ remove, push }) => (
                     <div>
@@ -373,34 +376,34 @@ const InvoiceForm = () => {
                             <div className="col-span-6">
                               <label
                                 htmlFor={`items.${index}.description`}
-                                className="block text-sm font-medium text-gray-700"
+                                className="block text-sm font-medium text-gray-700 dark:text-gray-300"
                               >
                                 Beschreibung *
                               </label>
                               <Field
                                 name={`items.${index}.description`}
                                 type="text"
-                                className={`mt-1 shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 rounded-md ${
+                                className={`mt-1 shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-md ${
                                   errors.items && 
                                   errors.items[index] && 
                                   errors.items[index].description && 
                                   touched.items && 
                                   touched.items[index] && 
                                   touched.items[index].description 
-                                    ? 'border-red-300' 
+                                    ? 'border-red-300 dark:border-red-500' 
                                     : ''
                                 }`}
                               />
                               <ErrorMessage
                                 name={`items.${index}.description`}
                                 component="div"
-                                className="mt-1 text-sm text-red-600"
+                                className="mt-1 text-sm text-red-600 dark:text-red-400"
                               />
                             </div>
                             <div className="col-span-2">
                               <label
                                 htmlFor={`items.${index}.quantity`}
-                                className="block text-sm font-medium text-gray-700"
+                                className="block text-sm font-medium text-gray-700 dark:text-gray-300"
                               >
                                 Menge *
                               </label>
@@ -408,14 +411,14 @@ const InvoiceForm = () => {
                                 name={`items.${index}.quantity`}
                                 type="number"
                                 min="1"
-                                className={`mt-1 shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 rounded-md ${
+                                className={`mt-1 shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-md ${
                                   errors.items && 
                                   errors.items[index] && 
                                   errors.items[index].quantity && 
                                   touched.items && 
                                   touched.items[index] && 
                                   touched.items[index].quantity 
-                                    ? 'border-red-300' 
+                                    ? 'border-red-300 dark:border-red-500' 
                                     : ''
                                 }`}
                                 onChange={(e) => {
@@ -430,13 +433,13 @@ const InvoiceForm = () => {
                               <ErrorMessage
                                 name={`items.${index}.quantity`}
                                 component="div"
-                                className="mt-1 text-sm text-red-600"
+                                className="mt-1 text-sm text-red-600 dark:text-red-400"
                               />
                             </div>
                             <div className="col-span-3">
                               <label
                                 htmlFor={`items.${index}.unitPrice`}
-                                className="block text-sm font-medium text-gray-700"
+                                className="block text-sm font-medium text-gray-700 dark:text-gray-300"
                               >
                                 Einzelpreis (€) *
                               </label>
@@ -445,14 +448,14 @@ const InvoiceForm = () => {
                                 type="number"
                                 step="0.01"
                                 min="0"
-                                className={`mt-1 shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 rounded-md ${
+                                className={`mt-1 shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-md ${
                                   errors.items && 
                                   errors.items[index] && 
                                   errors.items[index].unitPrice && 
                                   touched.items && 
                                   touched.items[index] && 
                                   touched.items[index].unitPrice 
-                                    ? 'border-red-300' 
+                                    ? 'border-red-300 dark:border-red-500' 
                                     : ''
                                 }`}
                                 onChange={(e) => {
@@ -467,13 +470,13 @@ const InvoiceForm = () => {
                               <ErrorMessage
                                 name={`items.${index}.unitPrice`}
                                 component="div"
-                                className="mt-1 text-sm text-red-600"
+                                className="mt-1 text-sm text-red-600 dark:text-red-400"
                               />
                             </div>
                             <div className="col-span-1 flex items-end">
                               <button
                                 type="button"
-                                className="mt-1 mb-1 text-red-600 hover:text-red-800"
+                                className="mt-1 mb-1 text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300"
                                 onClick={() => {
                                   if (values.items.length > 1) {
                                     remove(index);
@@ -497,7 +500,7 @@ const InvoiceForm = () => {
                       <div className="flex justify-between items-center">
                         <button
                           type="button"
-                          className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
+                          className="inline-flex items-center px-3 py-2 border border-gray-300 dark:border-gray-600 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600"
                           onClick={() => {
                             push({ description: '', quantity: 1, unitPrice: 0 });
                           }}
@@ -507,7 +510,7 @@ const InvoiceForm = () => {
                         </button>
                       </div>
                       {errors.items && typeof errors.items === 'string' && (
-                        <div className="mt-1 text-sm text-red-600">{errors.items}</div>
+                        <div className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.items}</div>
                       )}
                     </div>
                   )}
@@ -517,13 +520,13 @@ const InvoiceForm = () => {
               {/* Ausgewählte Zeiteinträge */}
               {(selectedOrderId || selectedCustomerId) && filteredTimeEntries.length > 0 && (
                 <div className="sm:col-span-6">
-                  <h3 className="text-lg font-medium text-gray-900 mb-3">Zeiteinträge</h3>
-                  <div className="bg-gray-50 p-4 rounded-md">
+                  <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-3">Zeiteinträge</h3>
+                  <div className="bg-gray-50 dark:bg-gray-700 p-4 rounded-md">
                     <div className="mb-2">
                       <label className="flex items-center">
                         <input
                           type="checkbox"
-                          className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                          className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 dark:border-gray-600 dark:bg-gray-700 rounded"
                           checked={values.timeTracking.length === filteredTimeEntries.length}
                           onChange={(e) => {
                             if (e.target.checked) {
@@ -538,7 +541,7 @@ const InvoiceForm = () => {
                             }
                           }}
                         />
-                        <span className="ml-2 text-sm font-medium text-gray-700">
+                        <span className="ml-2 text-sm font-medium text-gray-700 dark:text-gray-200">
                           Alle auswählen / abwählen
                         </span>
                       </label>
@@ -551,9 +554,9 @@ const InvoiceForm = () => {
                               type="checkbox"
                               name="timeTracking"
                               value={entry._id}
-                              className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                              className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 dark:border-gray-600 dark:bg-gray-700 rounded"
                             />
-                            <span className="ml-2 text-sm text-gray-700">
+                            <span className="ml-2 text-sm text-gray-700 dark:text-gray-200">
                               {new Date(entry.startTime).toLocaleDateString('de-DE')}: {entry.description} (
                               {entry.duration
                                 ? `${Math.floor(entry.duration / 60)}h ${entry.duration % 60}min`
@@ -571,7 +574,7 @@ const InvoiceForm = () => {
               <div className="sm:col-span-6">
                 <div className="grid grid-cols-1 gap-y-6 gap-x-4 sm:grid-cols-6">
                   <div className="sm:col-span-2">
-                    <label htmlFor="subtotal" className="block text-sm font-medium text-gray-700">
+                    <label htmlFor="subtotal" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
                       Zwischensumme (€) *
                     </label>
                     <div className="mt-1">
@@ -581,16 +584,16 @@ const InvoiceForm = () => {
                         id="subtotal"
                         step="0.01"
                         min="0"
-                        className={`shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 rounded-md ${
-                          errors.subtotal && touched.subtotal ? 'border-red-300' : ''
+                        className={`shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-md ${
+                          errors.subtotal && touched.subtotal ? 'border-red-300 dark:border-red-500' : ''
                         }`}
                       />
-                      <ErrorMessage name="subtotal" component="div" className="mt-1 text-sm text-red-600" />
+                      <ErrorMessage name="subtotal" component="div" className="mt-1 text-sm text-red-600 dark:text-red-400" />
                     </div>
                   </div>
 
                   <div className="sm:col-span-2">
-                    <label htmlFor="taxRate" className="block text-sm font-medium text-gray-700">
+                    <label htmlFor="taxRate" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
                       Steuersatz (%) *
                     </label>
                     <div className="mt-1">
@@ -600,20 +603,20 @@ const InvoiceForm = () => {
                         id="taxRate"
                         step="0.1"
                         min="0"
-                        className={`shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 rounded-md ${
-                          errors.taxRate && touched.taxRate ? 'border-red-300' : ''
+                        className={`shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-md ${
+                          errors.taxRate && touched.taxRate ? 'border-red-300 dark:border-red-500' : ''
                         }`}
                       />
-                      <ErrorMessage name="taxRate" component="div" className="mt-1 text-sm text-red-600" />
+                      <ErrorMessage name="taxRate" component="div" className="mt-1 text-sm text-red-600 dark:text-red-400" />
                     </div>
                   </div>
 
                   <div className="sm:col-span-2">
-                    <label className="block text-sm font-medium text-gray-700">
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
                       Steuer
                     </label>
                     <div className="mt-1">
-                      <div className="shadow-sm block w-full sm:text-sm border border-gray-300 rounded-md px-3 py-2 bg-gray-50">
+                      <div className="shadow-sm block w-full sm:text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-md px-3 py-2 bg-gray-50 dark:bg-gray-800">
                         {new Intl.NumberFormat('de-DE', {
                           style: 'currency',
                           currency: 'EUR'
@@ -623,11 +626,11 @@ const InvoiceForm = () => {
                   </div>
 
                   <div className="sm:col-span-2">
-                    <label className="block text-sm font-medium text-gray-700">
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
                       Gesamtbetrag
                     </label>
                     <div className="mt-1">
-                      <div className="shadow-sm block w-full sm:text-sm border border-gray-300 rounded-md px-3 py-2 bg-gray-50 font-medium">
+                      <div className="shadow-sm block w-full sm:text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-md px-3 py-2 bg-gray-50 dark:bg-gray-800 font-medium">
                         {new Intl.NumberFormat('de-DE', {
                           style: 'currency',
                           currency: 'EUR'
@@ -639,7 +642,7 @@ const InvoiceForm = () => {
               </div>
 
               <div className="sm:col-span-6">
-                <label htmlFor="notes" className="block text-sm font-medium text-gray-700">
+                <label htmlFor="notes" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
                   Notizen
                 </label>
                 <div className="mt-1">
@@ -648,7 +651,7 @@ const InvoiceForm = () => {
                     id="notes"
                     name="notes"
                     rows={3}
-                    className="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 rounded-md"
+                    className="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-md"
                   />
                 </div>
               </div>
@@ -659,14 +662,14 @@ const InvoiceForm = () => {
                 <button
                   type="button"
                   onClick={() => navigate(-1)}
-                  className="bg-white py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                  className="bg-white dark:bg-gray-700 py-2 px-4 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 dark:focus:ring-offset-gray-800"
                 >
                   Abbrechen
                 </button>
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className="ml-3 inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                  className="ml-3 inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 dark:bg-blue-700 dark:hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 dark:focus:ring-offset-gray-800 disabled:opacity-50"
                 >
                   {isSubmitting ? 'Wird gespeichert...' : id ? 'Aktualisieren' : 'Erstellen'}
                 </button>

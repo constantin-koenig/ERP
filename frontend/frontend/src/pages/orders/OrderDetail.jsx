@@ -1,10 +1,11 @@
-// frontend/frontend/src/pages/orders/OrderDetail.jsx - Mit Dark Mode Support
+// src/pages/orders/OrderDetail.jsx - Mit Dark Mode Support
 import { useState, useEffect } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import { toast } from 'react-toastify'
-import { getOrder } from '../../services/orderService'
+import { getOrder, updateOrderStatus } from '../../services/orderService'
 import { getTimeTrackingsByOrder } from '../../services/timeTrackingService'
-import { PencilIcon, ArrowLeftIcon, ClockIcon } from '@heroicons/react/outline'
+import { getInvoicesByOrder } from '../../services/invoiceService'
+import { PencilIcon, ArrowLeftIcon, ClockIcon, DocumentTextIcon } from '@heroicons/react/outline'
 import { format } from 'date-fns'
 import { de } from 'date-fns/locale'
 import { useTheme } from '../../context/ThemeContext'
@@ -14,8 +15,10 @@ const OrderDetail = () => {
   const navigate = useNavigate()
   const [order, setOrder] = useState(null)
   const [timeEntries, setTimeEntries] = useState([])
+  const [invoices, setInvoices] = useState([])
   const [loading, setLoading] = useState(true)
   const [timeEntriesLoading, setTimeEntriesLoading] = useState(true)
+  const [invoicesLoading, setInvoicesLoading] = useState(true)
   const { isDarkMode } = useTheme()
 
   useEffect(() => {
@@ -40,9 +43,22 @@ const OrderDetail = () => {
         setTimeEntriesLoading(false)
       }
     }
+    
+    const fetchInvoices = async () => {
+      try {
+        // Diese Funktion muss implementiert werden, falls noch nicht vorhanden
+        const response = await getInvoicesByOrder(id)
+        setInvoices(response.data.data)
+        setInvoicesLoading(false)
+      } catch (error) {
+        console.error('Fehler beim Laden der Rechnungen:', error)
+        setInvoicesLoading(false)
+      }
+    }
 
     fetchOrder()
     fetchTimeEntries()
+    fetchInvoices()
   }, [id, navigate])
 
   const formatDate = (dateString) => {
@@ -62,6 +78,14 @@ const OrderDetail = () => {
     }).format(amount)
   }
 
+  const calculateOrderTotal = () => {
+    if (!order || !order.items || !order.items.length) return 0;
+    return order.items.reduce((sum, item) => {
+      const itemTotal = (item.quantity || 0) * (item.unitPrice || 0);
+      return sum + itemTotal;
+    }, 0);
+  }
+
   const getStatusBadgeColor = (status) => {
     switch (status) {
       case 'neu':
@@ -74,6 +98,16 @@ const OrderDetail = () => {
         return isDarkMode ? 'bg-red-900 text-red-100' : 'bg-red-100 text-red-800'
       default:
         return isDarkMode ? 'bg-gray-700 text-gray-300' : 'bg-gray-100 text-gray-800'
+    }
+  }
+  
+  const handleStatusChange = async (newStatus) => {
+    try {
+      await updateOrderStatus(id, newStatus)
+      toast.success(`Auftragsstatus auf "${newStatus}" geändert`)
+      setOrder({ ...order, status: newStatus })
+    } catch (error) {
+      toast.error('Fehler beim Ändern des Auftragsstatus')
     }
   }
 
@@ -145,14 +179,29 @@ const OrderDetail = () => {
             </div>
             <div className="bg-white dark:bg-gray-800 px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
               <dt className="text-sm font-medium text-gray-500 dark:text-gray-300">Status</dt>
-              <dd className="mt-1 sm:mt-0 sm:col-span-2">
+              <dd className="mt-1 sm:mt-0 sm:col-span-2 flex items-center">
                 <span
                   className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusBadgeColor(
                     order.status
-                  )}`}
+                  )} mr-4`}
                 >
                   {order.status}
                 </span>
+                
+                <div className="ml-auto">
+                  <label htmlFor="status-change" className="sr-only">Status ändern</label>
+                  <select
+                    id="status-change"
+                    className="mt-1 block pl-3 pr-10 py-2 text-base border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md"
+                    value={order.status}
+                    onChange={(e) => handleStatusChange(e.target.value)}
+                  >
+                    <option value="neu">Neu</option>
+                    <option value="in Bearbeitung">In Bearbeitung</option>
+                    <option value="abgeschlossen">Abgeschlossen</option>
+                    <option value="storniert">Storniert</option>
+                  </select>
+                </div>
               </dd>
             </div>
             <div className="bg-gray-50 dark:bg-gray-700 px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
@@ -232,7 +281,7 @@ const OrderDetail = () => {
                       {formatCurrency(item.unitPrice)}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400 text-right">
-                      {formatCurrency(item.quantity * item.unitPrice)}
+                      {item.quantity * item.unitPrice ? formatCurrency(item.quantity * item.unitPrice) : formatCurrency(0)}
                     </td>
                   </tr>
                 ))}
@@ -241,7 +290,7 @@ const OrderDetail = () => {
                     Gesamtbetrag:
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white text-right">
-                    {formatCurrency(order.totalAmount)}
+                    {calculateOrderTotal() ? formatCurrency(calculateOrderTotal()) : formatCurrency(0)}
                   </td>
                 </tr>
               </tbody>
@@ -351,6 +400,108 @@ const OrderDetail = () => {
           ) : (
             <div className="px-6 py-4 text-center text-sm text-gray-500 dark:text-gray-400">
               Keine Zeiteinträge für diesen Auftrag vorhanden.
+            </div>
+          )}
+        </div>
+      </div>
+      
+      {/* Rechnungen */}
+      <div className="bg-white dark:bg-gray-800 shadow overflow-hidden sm:rounded-lg">
+        <div className="px-4 py-5 sm:px-6 flex justify-between items-center">
+          <h3 className="text-lg leading-6 font-medium text-gray-900 dark:text-white">Rechnungen</h3>
+          <Link
+            to={`/invoices/new?orderId=${id}`}
+            className="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 dark:bg-blue-700 dark:hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 dark:focus:ring-offset-gray-800"
+          >
+            <DocumentTextIcon className="-ml-0.5 mr-2 h-4 w-4" />
+            Rechnung erstellen
+          </Link>
+        </div>
+        <div className="border-t border-gray-200 dark:border-gray-700">
+          {invoicesLoading ? (
+            <div className="text-center py-4">
+              <p className="text-sm text-gray-500 dark:text-gray-400">Rechnungen werden geladen...</p>
+            </div>
+          ) : invoices.length > 0 ? (
+            <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+              <thead className="bg-gray-50 dark:bg-gray-700">
+                <tr>
+                  <th
+                    scope="col"
+                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider"
+                  >
+                    Rechnungsnr.
+                  </th>
+                  <th
+                    scope="col"
+                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider"
+                  >
+                    Status
+                  </th>
+                  <th
+                    scope="col"
+                    className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider"
+                  >
+                    Betrag
+                  </th>
+                  <th
+                    scope="col"
+                    className="px-6 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider"
+                  >
+                    Rechnungsdatum
+                  </th>
+                  <th
+                    scope="col"
+                    className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider"
+                  >
+                    Aktionen
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                {invoices.map((invoice) => (
+                  <tr key={invoice._id}>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
+                      <Link to={`/invoices/${invoice._id}`} className="text-blue-600 dark:text-blue-400 hover:text-blue-900 dark:hover:text-blue-300">
+                        {invoice.invoiceNumber}
+                      </Link>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span
+                        className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                          invoice.status === 'erstellt'
+                            ? isDarkMode ? 'bg-blue-900 text-blue-100' : 'bg-blue-100 text-blue-800'
+                            : invoice.status === 'versendet'
+                            ? isDarkMode ? 'bg-yellow-900 text-yellow-100' : 'bg-yellow-100 text-yellow-800'
+                            : invoice.status === 'bezahlt'
+                            ? isDarkMode ? 'bg-green-900 text-green-100' : 'bg-green-100 text-green-800'
+                            : isDarkMode ? 'bg-red-900 text-red-100' : 'bg-red-100 text-red-800'
+                        }`}
+                      >
+                        {invoice.status}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400 text-right">
+                      {formatCurrency(invoice.totalAmount)}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400 text-center">
+                      {formatDate(invoice.issueDate)}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400 text-right">
+                      <Link to={`/invoices/${invoice._id}`} className="text-blue-600 dark:text-blue-400 hover:text-blue-900 dark:hover:text-blue-300 mx-1">
+                        Details
+                      </Link>
+                      <Link to={`/invoices/${invoice._id}/edit`} className="text-blue-600 dark:text-blue-400 hover:text-blue-900 dark:hover:text-blue-300 mx-1">
+                        Bearbeiten
+                      </Link>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          ) : (
+            <div className="px-6 py-4 text-center text-sm text-gray-500 dark:text-gray-400">
+              Keine Rechnungen für diesen Auftrag vorhanden.
             </div>
           )}
         </div>

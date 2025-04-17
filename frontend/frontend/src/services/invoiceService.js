@@ -1,4 +1,4 @@
-// src/services/invoiceService.js
+// src/services/invoiceService.js - Erweitert mit getInvoicesByOrder und getInvoicesByCustomer
 import axiosInstance from './axiosInstance';
 
 /**
@@ -16,6 +16,28 @@ export const getInvoices = () => {
  */
 export const getInvoice = (id) => {
   return axiosInstance.get(`/invoices/${id}`);
+};
+
+/**
+ * Ruft alle Rechnungen für einen bestimmten Auftrag ab
+ * @param {string} orderId - ID des Auftrags
+ * @returns {Promise} Promise mit Rechnungen für den Auftrag
+ */
+export const getInvoicesByOrder = (orderId) => {
+  return axiosInstance.get('/invoices', {
+    params: { order: orderId }
+  });
+};
+
+/**
+ * Ruft alle Rechnungen für einen bestimmten Kunden ab
+ * @param {string} customerId - ID des Kunden
+ * @returns {Promise} Promise mit Rechnungen für den Kunden
+ */
+export const getInvoicesByCustomer = (customerId) => {
+  return axiosInstance.get('/invoices', {
+    params: { customer: customerId }
+  });
 };
 
 /**
