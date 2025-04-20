@@ -1,4 +1,4 @@
-// src/pages/orders/Orders.jsx - Mit Dark Mode Support
+// src/pages/orders/Orders.jsx - Mit Dark Mode Support und korrekter Berechnung
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { toast } from 'react-toastify'
@@ -74,6 +74,18 @@ const Orders = () => {
     }).format(amount)
   }
 
+  // Funktion zum Berechnen des Gesamtbetrags aus den Items
+  const calculateTotal = (order) => {
+    if (!order.items || order.items.length === 0) return 0;
+    
+    return order.items.reduce((total, item) => {
+      // Stelle sicher, dass die Werte als Zahlen behandelt werden
+      const quantity = Number(item.quantity) || 0;
+      const unitPrice = Number(item.unitPrice) || 0;
+      return total + (quantity * unitPrice);
+    }, 0);
+  }
+
   // Spalten-Definition für die Tabelle
   const columns = [
     {
@@ -122,7 +134,8 @@ const Orders = () => {
       accessor: 'totalAmount',
       cell: (row) => (
         <div className="text-sm text-gray-500 dark:text-gray-400">
-          {formatCurrency(row.totalAmount)}
+          {/* Berechne den Gesamtbetrag aus den Items statt totalAmount zu verwenden */}
+          {formatCurrency(calculateTotal(row))}
         </div>
       ),
       className: 'hidden lg:table-cell'
@@ -214,7 +227,7 @@ const Orders = () => {
       </p>
       
       <p className="text-sm text-gray-600 dark:text-gray-400">
-        <span className="font-medium">Betrag:</span> {formatCurrency(order.totalAmount)}
+        <span className="font-medium">Betrag:</span> {formatCurrency(calculateTotal(order))}
       </p>
       
       <p className="text-sm text-gray-600 dark:text-gray-400">

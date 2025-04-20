@@ -1,6 +1,6 @@
-// src/pages/invoices/InvoiceForm.jsx - Mit Dark Mode Support
+// src/pages/invoices/InvoiceForm.jsx - Mit Dark Mode Support und korrigierter Berechnung
 import { useState, useEffect } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { toast } from 'react-toastify'
 import { Formik, Form, Field, ErrorMessage, FieldArray } from 'formik'
 import * as Yup from 'yup'
@@ -33,15 +33,18 @@ const InvoiceSchema = Yup.object().shape({
 const InvoiceForm = () => {
   const { id } = useParams()
   const navigate = useNavigate()
+  const location = useLocation()
+  const queryParams = new URLSearchParams(location.search)
+  const orderId = queryParams.get('orderId')
   const { isDarkMode } = useTheme()
-  
+
   const [customers, setCustomers] = useState([])
   const [orders, setOrders] = useState([])
   const [timeEntries, setTimeEntries] = useState([])
   const [initialValues, setInitialValues] = useState({
     invoiceNumber: '',
-    customer: '',
-    order: '',
+    customer: orderId || '',
+    order: orderId || '',
     items: [
       {
         description: '',
@@ -183,7 +186,7 @@ const InvoiceForm = () => {
         setFieldValue('items', [...selectedOrder.items])
         
         // Berechne Zwischensumme
-        const subtotal = selectedOrder.items.reduce((sum, item) => sum + (item.quantity * item.unitPrice), 0)
+        const subtotal = calculateSubtotal(selectedOrder.items);
         setFieldValue('subtotal', subtotal)
       }
     }
@@ -206,9 +209,15 @@ const InvoiceForm = () => {
     }
   }
 
+  // Verbesserte Funktion zur Berechnung der Zwischensumme
   const calculateSubtotal = (items) => {
+    if (!items || items.length === 0) return 0;
+    
     return items.reduce((total, item) => {
-      return total + (item.quantity * item.unitPrice);
+      // Stelle sicher, dass alle Werte als Zahlen behandelt werden
+      const quantity = Number(item.quantity) || 0;
+      const unitPrice = Number(item.unitPrice) || 0;
+      return total + (quantity * unitPrice);
     }, 0);
   }
 
@@ -422,12 +431,17 @@ const InvoiceForm = () => {
                                     : ''
                                 }`}
                                 onChange={(e) => {
+                                  // Aktuelle Werte von allen Positionen erfassen
+                                  const updatedItems = [...values.items];
+                                  // Aktualisiere das spezifische Feld
+                                  updatedItems[index].quantity = Number(e.target.value);
+                                  
+                                  // Aktualisiere das Formularfeld
                                   setFieldValue(`items.${index}.quantity`, Number(e.target.value));
-                                  // Aktualisiere Zwischensumme
-                                  setTimeout(() => {
-                                    const newSubtotal = calculateSubtotal(values.items);
-                                    setFieldValue('subtotal', newSubtotal);
-                                  }, 0);
+                                  
+                                  // Berechne die neue Gesamtsumme aus den aktualisierten Werten
+                                  const newSubtotal = calculateSubtotal(updatedItems);
+                                  setFieldValue('subtotal', newSubtotal);
                                 }}
                               />
                               <ErrorMessage
@@ -459,12 +473,17 @@ const InvoiceForm = () => {
                                     : ''
                                 }`}
                                 onChange={(e) => {
+                                  // Aktuelle Werte von allen Positionen erfassen
+                                  const updatedItems = [...values.items];
+                                  // Aktualisiere das spezifische Feld
+                                  updatedItems[index].unitPrice = Number(e.target.value);
+                                  
+                                  // Aktualisiere das Formularfeld
                                   setFieldValue(`items.${index}.unitPrice`, Number(e.target.value));
-                                  // Aktualisiere Zwischensumme
-                                  setTimeout(() => {
-                                    const newSubtotal = calculateSubtotal(values.items);
-                                    setFieldValue('subtotal', newSubtotal);
-                                  }, 0);
+                                  
+                                  // Berechne die neue Gesamtsumme aus den aktualisierten Werten
+                                  const newSubtotal = calculateSubtotal(updatedItems);
+                                  setFieldValue('subtotal', newSubtotal);
                                 }}
                               />
                               <ErrorMessage
@@ -479,14 +498,16 @@ const InvoiceForm = () => {
                                 className="mt-1 mb-1 text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300"
                                 onClick={() => {
                                   if (values.items.length > 1) {
+                                    // Erstelle eine Kopie der Items ohne das zu entfernende Element
+                                    const newItems = [...values.items];
+                                    newItems.splice(index, 1);
+                                    
+                                    // Entferne das Element aus dem Formular
                                     remove(index);
-                                    // Aktualisiere Zwischensumme
-                                    setTimeout(() => {
-                                      const newItems = [...values.items];
-                                      newItems.splice(index, 1);
-                                      const newSubtotal = calculateSubtotal(newItems);
-                                      setFieldValue('subtotal', newSubtotal);
-                                    }, 0);
+                                    
+                                    // Berechne die neue Zwischensumme
+                                    const newSubtotal = calculateSubtotal(newItems);
+                                    setFieldValue('subtotal', newSubtotal);
                                   } else {
                                     toast.warning('Mindestens eine Position ist erforderlich');
                                   }
@@ -502,7 +523,15 @@ const InvoiceForm = () => {
                           type="button"
                           className="inline-flex items-center px-3 py-2 border border-gray-300 dark:border-gray-600 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600"
                           onClick={() => {
+                            // Füge neue Position hinzu
                             push({ description: '', quantity: 1, unitPrice: 0 });
+                            
+                            // Aktualisiere Zwischensumme mit einem kleinen Delay
+                            setTimeout(() => {
+                              const newItems = [...values.items, { description: '', quantity: 1, unitPrice: 0 }];
+                              const newSubtotal = calculateSubtotal(newItems);
+                              setFieldValue('subtotal', newSubtotal);
+                            }, 50);
                           }}
                         >
                           <PlusIcon className="-ml-0.5 mr-2 h-4 w-4" />
@@ -634,7 +663,7 @@ const InvoiceForm = () => {
                         {new Intl.NumberFormat('de-DE', {
                           style: 'currency',
                           currency: 'EUR'
-                        }).format(values.subtotal + (values.subtotal * values.taxRate) / 100)}
+                        }).format(Number(values.subtotal) + (Number(values.subtotal) * Number(values.taxRate)) / 100)}
                       </div>
                     </div>
                   </div>

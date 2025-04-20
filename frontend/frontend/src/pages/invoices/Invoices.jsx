@@ -1,4 +1,4 @@
-// src/pages/invoices/Invoices.jsx - Mit Dark Mode Support
+// src/pages/invoices/Invoices.jsx - Mit Dark Mode Support und korrekter Berechnung
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { toast } from 'react-toastify'
@@ -74,6 +74,26 @@ const Invoices = () => {
     }).format(amount)
   }
 
+  // Funktion zum korrekten Berechnen des Gesamtbetrags
+  const calculateTotalAmount = (invoice) => {
+    // Wenn keine items vorhanden sind oder keine subtotal, gebe 0 zurück
+    if (!invoice.items || invoice.items.length === 0) {
+      return 0;
+    }
+    
+    // Berechne Zwischensumme aus items
+    const subtotal = invoice.items.reduce((sum, item) => {
+      return sum + ((Number(item.quantity) || 0) * (Number(item.unitPrice) || 0));
+    }, 0);
+    
+    // Berechne Steuerbetrag
+    const taxRate = Number(invoice.taxRate) || 0;
+    const taxAmount = subtotal * (taxRate / 100);
+    
+    // Berechne Gesamtbetrag
+    return subtotal + taxAmount;
+  }
+
   // Spalten-Definition für die Tabelle
   const columns = [
     {
@@ -122,7 +142,8 @@ const Invoices = () => {
       accessor: 'totalAmount',
       cell: (row) => (
         <div className="text-sm text-gray-500 dark:text-gray-400">
-          {formatCurrency(row.totalAmount)}
+          {/* Berechne den Gesamtbetrag korrekt statt totalAmount zu verwenden */}
+          {formatCurrency(calculateTotalAmount(row))}
         </div>
       ),
       className: 'hidden sm:table-cell'
@@ -224,7 +245,7 @@ const Invoices = () => {
       </p>
       
       <p className="text-sm text-gray-600 dark:text-gray-400">
-        <span className="font-medium">Betrag:</span> {formatCurrency(invoice.totalAmount)}
+        <span className="font-medium">Betrag:</span> {formatCurrency(calculateTotalAmount(invoice))}
       </p>
       
       <p className="text-sm text-gray-600 dark:text-gray-400">
