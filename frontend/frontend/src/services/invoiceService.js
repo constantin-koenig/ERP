@@ -1,12 +1,15 @@
-// src/services/invoiceService.js - Erweitert mit getInvoicesByOrder und getInvoicesByCustomer
+// src/services/invoiceService.js - Vervollständigt mit allen Filterfunktionen
 import axiosInstance from './axiosInstance';
 
 /**
- * Ruft alle Rechnungen vom Server ab
+ * Ruft alle Rechnungen vom Server ab (mit optionalen Filtern)
+ * @param {Object} filters - Optionale Filter (z.B. { customer: 'id', order: 'id' })
  * @returns {Promise} Promise mit allen Rechnungen
  */
-export const getInvoices = () => {
-  return axiosInstance.get('/invoices');
+export const getInvoices = (filters = {}) => {
+  return axiosInstance.get('/invoices', {
+    params: filters
+  });
 };
 
 /**

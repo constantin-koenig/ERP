@@ -455,29 +455,29 @@ const OrderDetail = () => {
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400 text-center">
                       <span
                         className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                          invoice.status === 'erstellt'
+                          invoices.status === 'erstellt'
                             ? isDarkMode ? 'bg-blue-900 text-blue-100' : 'bg-blue-100 text-blue-800'
-                            : invoice.status === 'versendet'
+                            : invoices.status === 'versendet'
                             ? isDarkMode ? 'bg-yellow-900 text-yellow-100' : 'bg-yellow-100 text-yellow-800'
-                            : invoice.status === 'bezahlt'
+                            : invoices.status === 'bezahlt'
                             ? isDarkMode ? 'bg-green-900 text-green-100' : 'bg-green-100 text-green-800'
                             : isDarkMode ? 'bg-red-900 text-red-100' : 'bg-red-100 text-red-800'
                         }`}
                       >
-                        {invoice.status}
+                        {invoices.status}
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400 text-right">
-                      {formatCurrency(invoice.totalAmount)}
+                      {formatCurrency(invoices.totalAmount)}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400 text-center">
-                      {formatDate(invoice.issueDate)}
+                      {formatDate(invoices.issueDate)}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400 text-right">
-                      <Link to={`/invoices/${invoice._id}`} className="text-blue-600 dark:text-blue-400 hover:text-blue-900 dark:hover:text-blue-300 mx-1">
+                      <Link to={`/invoices/${invoices._id}`} className="text-blue-600 dark:text-blue-400 hover:text-blue-900 dark:hover:text-blue-300 mx-1">
                         Details
                       </Link>
-                      <Link to={`/invoices/${invoice._id}/edit`} className="text-blue-600 dark:text-blue-400 hover:text-blue-900 dark:hover:text-blue-300 mx-1">
+                      <Link to={`/invoices/${invoices._id}/edit`} className="text-blue-600 dark:text-blue-400 hover:text-blue-900 dark:hover:text-blue-300 mx-1">
                         Bearbeiten
                       </Link>
                     </td>

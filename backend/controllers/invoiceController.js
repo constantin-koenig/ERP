@@ -2,12 +2,24 @@ const Invoice = require('../models/Invoice');
 const TimeTracking = require('../models/TimeTracking');
 const { validationResult } = require('express-validator');
 
-// @desc    Alle Rechnungen abrufen
+// @desc    Alle Rechnungen abrufen (mit optionaler Filterung nach Kunde oder Auftrag)
 // @route   GET /api/invoices
 // @access  Private
 exports.getInvoices = async (req, res) => {
   try {
-    const invoices = await Invoice.find({ createdBy: req.user.id })
+    // Basisfilter für den aktuellen Benutzer
+    const filter = { createdBy: req.user.id };
+    
+    // Prüfe auf zusätzliche Filter in der Anfrage
+    if (req.query.customer) {
+      filter.customer = req.query.customer;
+    }
+    
+    if (req.query.order) {
+      filter.order = req.query.order;
+    }
+
+    const invoices = await Invoice.find(filter)
       .populate('customer', 'name')
       .populate('order', 'orderNumber');
 
@@ -17,6 +29,7 @@ exports.getInvoices = async (req, res) => {
       data: invoices
     });
   } catch (error) {
+    console.error('Fehler beim Abrufen der Rechnungen:', error);
     res.status(500).json({
       success: false,
       message: 'Serverfehler'
