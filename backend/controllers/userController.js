@@ -803,3 +803,25 @@ const sendTokenResponse = (user, statusCode, res) => {
       token
     });
 };
+
+// @desc    Öffentliche Benutzerliste für Zuweisungen abrufen (nur ID, Name, Email)
+// @route   GET /api/users/assignable
+// @access  Private (für alle authentifizierten Benutzer)
+exports.getAssignableUsers = async (req, res) => {
+  try {
+    // Nur aktive Benutzer abrufen
+    const users = await User.find({ active: true }).select('_id name email');
+
+    res.status(200).json({
+      success: true,
+      count: users.length,
+      data: users
+    });
+  } catch (error) {
+    console.error('Fehler beim Abrufen der zuweisbaren Benutzer:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Serverfehler'
+    });
+  }
+};

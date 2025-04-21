@@ -113,6 +113,14 @@ export const activateAccount = async (activationToken, password) => {
   return axiosInstance.put(`/users/activate/${activationToken}`, { password });
 };
 
+/**
+ * Ruft eine Liste von Benutzern für Zuweisungen ab (eingeschränkte Informationen)
+ * @returns {Promise} Promise mit Liste der zuweisbaren Benutzer
+ */
+export const getAssignableUsers = async () => {
+  return axiosInstance.get('/users/assignable');
+};
+
 // Admin-Funktionen
 
 /**

@@ -1,4 +1,4 @@
-// backend/routes/userRoutes.js (vollständig)
+// backend/routes/userRoutes.js (ergänzt)
 const express = require('express');
 const { check } = require('express-validator');
 const {
@@ -16,7 +16,8 @@ const {
   inviteUser,
   activateAccount,
   uploadProfileImage,
-  reinviteUser
+  reinviteUser,
+  getAssignableUsers // Neue Funktion importieren
 } = require('../controllers/userController');
 const { protect, authorize } = require('../middleware/auth');
 
@@ -80,6 +81,9 @@ router.put(
   ],
   updatePassword
 );
+
+// Neue Route für eingeschränkte Benutzerliste (für Zuweisungen)
+router.get('/assignable', protect, getAssignableUsers);
 
 // Profilbild-Upload-Route
 router.post('/upload-profile-image', protect, uploadProfileImage);

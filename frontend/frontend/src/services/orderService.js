@@ -1,4 +1,4 @@
-// src/services/orderService.js
+// src/services/orderService.js (aktualisiert)
 import axiosInstance from './axiosInstance';
 
 /**
@@ -54,6 +54,16 @@ export const deleteOrder = (id) => {
  */
 export const updateOrderStatus = (id, status) => {
   return axiosInstance.put(`/orders/${id}`, { status });
+};
+
+/**
+ * Weist einen Benutzer einem Auftrag zu oder hebt die Zuweisung auf
+ * @param {string} id - ID des Auftrags
+ * @param {string|null} userId - ID des Benutzers oder null für Aufhebung der Zuweisung
+ * @returns {Promise} Promise mit dem aktualisierten Auftrag
+ */
+export const assignOrder = (id, userId) => {
+  return axiosInstance.put(`/orders/${id}/assign`, { userId });
 };
 
 /**

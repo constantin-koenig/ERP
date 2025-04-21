@@ -1,4 +1,4 @@
-// src/pages/orders/OrderForm.jsx - Mit Dark Mode Support
+// src/pages/orders/OrderForm.jsx (aktualisiert)
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { toast } from 'react-toastify'
@@ -6,6 +6,7 @@ import { Formik, Form, Field, ErrorMessage, FieldArray } from 'formik'
 import * as Yup from 'yup'
 import { createOrder, getOrder, updateOrder } from '../../services/orderService'
 import { getCustomers } from '../../services/customerService'
+import { getAssignableUsers } from '../../services/authService'
 import { ArrowLeftIcon, TrashIcon, PlusIcon } from '@heroicons/react/outline'
 import { useTheme } from '../../context/ThemeContext'
 
@@ -33,6 +34,7 @@ const OrderForm = () => {
   const navigate = useNavigate()
   const { isDarkMode } = useTheme()
   const [customers, setCustomers] = useState([])
+  const [users, setUsers] = useState([]) // Zustand für Benutzer
   const [initialValues, setInitialValues] = useState({
     orderNumber: '',
     customer: '',
@@ -47,10 +49,12 @@ const OrderForm = () => {
     ],
     startDate: '',
     dueDate: '',
-    notes: ''
+    notes: '',
+    assignedTo: '' // Neues Feld für den zugewiesenen Benutzer
   })
   const [loading, setLoading] = useState(id ? true : false)
   const [customersLoading, setCustomersLoading] = useState(true)
+  const [usersLoading, setUsersLoading] = useState(true) // Ladezustand für Benutzer
 
   useEffect(() => {
     const fetchCustomers = async () => {
@@ -61,6 +65,17 @@ const OrderForm = () => {
       } catch (error) {
         toast.error('Fehler beim Laden der Kunden')
         setCustomersLoading(false)
+      }
+    }
+
+    const fetchUsers = async () => {
+      try {
+        const response = await getAssignableUsers()
+        setUsers(response.data.data)
+        setUsersLoading(false)
+      } catch (error) {
+        toast.error('Fehler beim Laden der Benutzer')
+        setUsersLoading(false)
       }
     }
 
@@ -87,7 +102,8 @@ const OrderForm = () => {
             ],
             startDate: formatDateForInput(order.startDate),
             dueDate: formatDateForInput(order.dueDate),
-            notes: order.notes || ''
+            notes: order.notes || '',
+            assignedTo: order.assignedTo ? (order.assignedTo._id || order.assignedTo) : '' // Setze zugewiesenen Benutzer
           })
           setLoading(false)
         } catch (error) {
@@ -98,6 +114,7 @@ const OrderForm = () => {
     }
 
     fetchCustomers()
+    fetchUsers() // Benutzer laden
     fetchOrder()
   }, [id, navigate])
 
@@ -130,7 +147,7 @@ const OrderForm = () => {
     }, 0);
   }
 
-  if (loading || customersLoading) {
+  if (loading || customersLoading || usersLoading) {
     return (
       <div className="text-center py-10">
         <div className="spinner"></div>
@@ -206,21 +223,25 @@ const OrderForm = () => {
                 </div>
               </div>
 
-              <div className="sm:col-span-6">
-                <label htmlFor="description" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                  Beschreibung *
+              {/* Neues Feld für den zugewiesenen Benutzer */}
+              <div className="sm:col-span-3">
+                <label htmlFor="assignedTo" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                  Zugewiesen an
                 </label>
                 <div className="mt-1">
                   <Field
-                    as="textarea"
-                    name="description"
-                    id="description"
-                    rows={3}
-                    className={`shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-md ${
-                      errors.description && touched.description ? 'border-red-300 dark:border-red-500' : ''
-                    }`}
-                  />
-                  <ErrorMessage name="description" component="div" className="mt-1 text-sm text-red-600 dark:text-red-400" />
+                    as="select"
+                    name="assignedTo"
+                    id="assignedTo"
+                    className="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-md"
+                  >
+                    <option value="">Keinem Benutzer zugewiesen</option>
+                    {users.map(user => (
+                      <option key={user._id} value={user._id}>
+                        {user.name} ({user.email})
+                      </option>
+                    ))}
+                  </Field>
                 </div>
               </div>
 
@@ -240,6 +261,24 @@ const OrderForm = () => {
                     <option value="abgeschlossen">Abgeschlossen</option>
                     <option value="storniert">Storniert</option>
                   </Field>
+                </div>
+              </div>
+
+              <div className="sm:col-span-6">
+                <label htmlFor="description" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                  Beschreibung *
+                </label>
+                <div className="mt-1">
+                  <Field
+                    as="textarea"
+                    name="description"
+                    id="description"
+                    rows={3}
+                    className={`shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-md ${
+                      errors.description && touched.description ? 'border-red-300 dark:border-red-500' : ''
+                    }`}
+                  />
+                  <ErrorMessage name="description" component="div" className="mt-1 text-sm text-red-600 dark:text-red-400" />
                 </div>
               </div>
 

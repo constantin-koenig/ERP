@@ -1,11 +1,18 @@
-// src/pages/orders/OrderDetail.jsx - Mit Dark Mode Support
+// src/pages/orders/OrderDetail.jsx (aktualisiert)
 import { useState, useEffect } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import { toast } from 'react-toastify'
-import { getOrder, updateOrderStatus } from '../../services/orderService'
+import { getOrder, updateOrderStatus, assignOrder } from '../../services/orderService'
 import { getTimeTrackingsByOrder } from '../../services/timeTrackingService'
 import { getInvoicesByOrder } from '../../services/invoiceService'
-import { PencilIcon, ArrowLeftIcon, ClockIcon, DocumentTextIcon } from '@heroicons/react/outline'
+import { getAssignableUsers } from '../../services/authService'
+import { 
+  PencilIcon, 
+  ArrowLeftIcon, 
+  ClockIcon, 
+  DocumentTextIcon, 
+  UserIcon 
+} from '@heroicons/react/outline'
 import { format } from 'date-fns'
 import { de } from 'date-fns/locale'
 import { useTheme } from '../../context/ThemeContext'
@@ -16,9 +23,11 @@ const OrderDetail = () => {
   const [order, setOrder] = useState(null)
   const [timeEntries, setTimeEntries] = useState([])
   const [invoices, setInvoices] = useState([])
+  const [users, setUsers] = useState([]) // Zustand für Benutzer
   const [loading, setLoading] = useState(true)
   const [timeEntriesLoading, setTimeEntriesLoading] = useState(true)
   const [invoicesLoading, setInvoicesLoading] = useState(true)
+  const [usersLoading, setUsersLoading] = useState(true) // Ladezustand für Benutzer
   const { isDarkMode } = useTheme()
 
   useEffect(() => {
@@ -46,7 +55,6 @@ const OrderDetail = () => {
     
     const fetchInvoices = async () => {
       try {
-        // Diese Funktion muss implementiert werden, falls noch nicht vorhanden
         const response = await getInvoicesByOrder(id)
         setInvoices(response.data.data)
         setInvoicesLoading(false)
@@ -56,9 +64,21 @@ const OrderDetail = () => {
       }
     }
 
+    const fetchUsers = async () => {
+      try {
+        const response = await getAssignableUsers()
+        setUsers(response.data.data)
+        setUsersLoading(false)
+      } catch (error) {
+        console.error('Fehler beim Laden der Benutzer:', error)
+        setUsersLoading(false)
+      }
+    }
+
     fetchOrder()
     fetchTimeEntries()
     fetchInvoices()
+    fetchUsers() // Benutzer laden
   }, [id, navigate])
 
   const formatDate = (dateString) => {
@@ -111,7 +131,20 @@ const OrderDetail = () => {
     }
   }
 
-  if (loading) {
+  // Neue Funktion zum Zuweisen eines Benutzers
+  const handleAssignUser = async (userId) => {
+    try {
+      const response = await assignOrder(id, userId)
+      if (response.data && response.data.success) {
+        toast.success(userId ? 'Benutzer erfolgreich zugewiesen' : 'Benutzerzuweisung aufgehoben')
+        setOrder(response.data.data)
+      }
+    } catch (error) {
+      toast.error('Fehler bei der Benutzerzuweisung')
+    }
+  }
+
+  if (loading || usersLoading) {
     return (
       <div className="text-center py-10">
         <div className="spinner"></div>
@@ -204,25 +237,62 @@ const OrderDetail = () => {
                 </div>
               </dd>
             </div>
+            {/* Neuer Abschnitt für zugewiesenen Benutzer */}
             <div className="bg-gray-50 dark:bg-gray-700 px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
+              <dt className="text-sm font-medium text-gray-500 dark:text-gray-300">Zugewiesen an</dt>
+              <dd className="mt-1 sm:mt-0 sm:col-span-2 flex items-center">
+                <span className="mr-4">
+                  {order.assignedTo ? (
+                    <div className="flex items-center">
+                      <UserIcon className="mr-2 h-5 w-5 text-gray-500 dark:text-gray-400" />
+                      <span className="text-sm text-gray-900 dark:text-white">
+                        {typeof order.assignedTo === 'object' ? 
+                          `${order.assignedTo.name} (${order.assignedTo.email})` : 
+                          'Benutzer geladen...'}
+                      </span>
+                    </div>
+                  ) : (
+                    <span className="text-sm text-gray-500 dark:text-gray-400">Keinem Benutzer zugewiesen</span>
+                  )}
+                </span>
+                
+                <div className="ml-auto">
+                  <label htmlFor="assign-user" className="sr-only">Benutzer zuweisen</label>
+                  <select
+                    id="assign-user"
+                    className="mt-1 block pl-3 pr-10 py-2 text-base border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md"
+                    value={order.assignedTo ? (typeof order.assignedTo === 'object' ? order.assignedTo._id : order.assignedTo) : ''}
+                    onChange={(e) => handleAssignUser(e.target.value)}
+                  >
+                    <option value="">Keinem Benutzer zuweisen</option>
+                    {users.map(user => (
+                      <option key={user._id} value={user._id}>
+                        {user.name} ({user.email})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </dd>
+            </div>
+            <div className="bg-white dark:bg-gray-800 px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
               <dt className="text-sm font-medium text-gray-500 dark:text-gray-300">Startdatum</dt>
               <dd className="mt-1 text-sm text-gray-900 dark:text-white sm:mt-0 sm:col-span-2">
                 {formatDate(order.startDate)}
               </dd>
             </div>
-            <div className="bg-white dark:bg-gray-800 px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
+            <div className="bg-gray-50 dark:bg-gray-700 px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
               <dt className="text-sm font-medium text-gray-500 dark:text-gray-300">Fälligkeitsdatum</dt>
               <dd className="mt-1 text-sm text-gray-900 dark:text-white sm:mt-0 sm:col-span-2">
                 {formatDate(order.dueDate)}
               </dd>
             </div>
-            <div className="bg-gray-50 dark:bg-gray-700 px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
+            <div className="bg-white dark:bg-gray-800 px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
               <dt className="text-sm font-medium text-gray-500 dark:text-gray-300">Gesamtbetrag</dt>
               <dd className="mt-1 text-sm text-gray-900 dark:text-white sm:mt-0 sm:col-span-2">
                 {formatCurrency(order.totalAmount)}
               </dd>
             </div>
-            <div className="bg-white dark:bg-gray-800 px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
+            <div className="bg-gray-50 dark:bg-gray-700 px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
               <dt className="text-sm font-medium text-gray-500 dark:text-gray-300">Notizen</dt>
               <dd className="mt-1 text-sm text-gray-900 dark:text-white sm:mt-0 sm:col-span-2">
                 {order.notes || '-'}
@@ -383,90 +453,6 @@ const OrderDetail = () => {
                         : '-'}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400 text-center">
-                      <span
-                        className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                          entry.billed
-                            ? isDarkMode ? 'bg-green-900 text-green-100' : 'bg-green-100 text-green-800'
-                            : isDarkMode ? 'bg-yellow-900 text-yellow-100' : 'bg-yellow-100 text-yellow-800'
-                        }`}
-                      >
-                        {entry.billed ? 'Ja' : 'Nein'}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          ) : (
-            <div className="px-6 py-4 text-center text-sm text-gray-500 dark:text-gray-400">
-              Keine Zeiteinträge für diesen Auftrag vorhanden.
-            </div>
-          )}
-        </div>
-      </div>
-      
-      {/* Rechnungen */}
-      <div className="bg-white dark:bg-gray-800 shadow overflow-hidden sm:rounded-lg">
-        <div className="px-4 py-5 sm:px-6 flex justify-between items-center">
-          <h3 className="text-lg leading-6 font-medium text-gray-900 dark:text-white">Rechnungen</h3>
-          <Link
-            to={`/invoices/new?orderId=${id}`}
-            className="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 dark:bg-blue-700 dark:hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 dark:focus:ring-offset-gray-800"
-          >
-            <DocumentTextIcon className="-ml-0.5 mr-2 h-4 w-4" />
-            Rechnung erstellen
-          </Link>
-        </div>
-        <div className="border-t border-gray-200 dark:border-gray-700">
-          {invoicesLoading ? (
-            <div className="text-center py-4">
-              <p className="text-sm text-gray-500 dark:text-gray-400">Rechnungen werden geladen...</p>
-            </div>
-          ) : invoices.length > 0 ? (
-            <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-              <thead className="bg-gray-50 dark:bg-gray-700">
-                <tr>
-                  <th
-                    scope="col"
-                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider"
-                  >
-                    Rechnungsnr.
-                  </th>
-                  <th
-                    scope="col"
-                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider"
-                  >
-                    Status
-                  </th>
-                  <th
-                    scope="col"
-                    className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider"
-                  >
-                    Betrag
-                  </th>
-                  <th
-                    scope="col"
-                    className="px-6 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider"
-                  >
-                    Rechnungsdatum
-                  </th>
-                  <th
-                    scope="col"
-                    className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider"
-                  >
-                    Aktionen
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-                {invoices.map((invoice) => (
-                  <tr key={invoice._id}>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
-                      <Link to={`/invoices/${invoice._id}`} className="text-blue-600 dark:text-blue-400 hover:text-blue-900 dark:hover:text-blue-300">
-                        {invoice.invoiceNumber}
-                      </Link>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
                       <span
                         className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
                           invoice.status === 'erstellt'

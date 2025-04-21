@@ -1,3 +1,4 @@
+// backend/models/Order.js (aktualisiert)
 const mongoose = require('mongoose');
 
 const OrderSchema = new mongoose.Schema({
@@ -54,6 +55,12 @@ const OrderSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
     required: true
+  },
+  // Zugewiesener Benutzer - nicht erforderlich
+  assignedTo: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    required: false
   },
   createdAt: {
     type: Date,

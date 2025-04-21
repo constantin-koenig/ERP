@@ -1,9 +1,9 @@
-// src/pages/orders/Orders.jsx - Mit Dark Mode Support und korrekter Berechnung
+// src/pages/orders/Orders.jsx (aktualisiert)
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { toast } from 'react-toastify'
 import { getOrders, deleteOrder } from '../../services/orderService'
-import { PlusIcon, PencilIcon, TrashIcon, EyeIcon } from '@heroicons/react/outline'
+import { PlusIcon, PencilIcon, TrashIcon, EyeIcon, UserIcon } from '@heroicons/react/outline'
 import { format } from 'date-fns'
 import { de } from 'date-fns/locale'
 import ResponsiveTable from '../../components/ui/ResponsiveTable'
@@ -117,6 +117,23 @@ const Orders = () => {
       )
     },
     {
+      header: 'Zugewiesen an',
+      accessor: 'assignedTo',
+      cell: (row) => (
+        <div className="text-sm text-gray-500 dark:text-gray-400 flex items-center">
+          {row.assignedTo ? (
+            <>
+              <UserIcon className="inline-block mr-1 h-4 w-4" />
+              {typeof row.assignedTo === 'object' ? row.assignedTo.name : 'Benutzer...'}
+            </>
+          ) : (
+            <span className="text-xs text-gray-400 dark:text-gray-500">Nicht zugewiesen</span>
+          )}
+        </div>
+      ),
+      className: 'hidden lg:table-cell'
+    },
+    {
       header: 'Status',
       accessor: 'status',
       cell: (row) => (
@@ -218,6 +235,20 @@ const Orders = () => {
           }
         </p>
       )}
+      
+      {/* Neuer Abschnitt für Benutzerzuweisung */}
+      <p className="text-sm text-gray-600 dark:text-gray-400">
+        <span className="font-medium">Zugewiesen:</span> {
+          order.assignedTo ? (
+            <span className="flex items-center">
+              <UserIcon className="inline-block mr-1 h-4 w-4" />
+              {typeof order.assignedTo === 'object' ? order.assignedTo.name : 'Benutzer...'}
+            </span>
+          ) : (
+            <span className="text-xs text-gray-400 dark:text-gray-500">Nicht zugewiesen</span>
+          )
+        }
+      </p>
       
       <p className="text-sm text-gray-600 dark:text-gray-400">
         <span className="font-medium">Status:</span>{' '}
