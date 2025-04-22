@@ -1,4 +1,4 @@
-// src/pages/orders/OrderDetail.jsx (verbessert für bessere Benutzerfreundlichkeit)
+// src/pages/orders/OrderDetail.jsx (aktualisiert)
 import { useState, useEffect } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import { toast } from 'react-toastify'
@@ -380,9 +380,24 @@ const OrderDetail = () => {
       {/* Hauptinhalt - flexibler basierend auf aktivem Tab */}
       {activeTab === 'info' && (
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-          {/* Linke Spalte mit Notizen */}
+          {/* Linke Spalte mit Titel und Notizen */}
           <div className="lg:col-span-2">
+            {/* Titel (früher Beschreibung) - nach oben verschoben */}
             <div className="bg-white dark:bg-gray-800 shadow sm:rounded-lg">
+              <div className="px-4 py-5 sm:px-6">
+                <h3 className="text-lg leading-6 font-medium text-gray-900 dark:text-white">Titel</h3>
+              </div>
+              <div className="border-t border-gray-200 dark:border-gray-700 px-4 py-5 sm:px-6">
+                <div className="prose prose-sm max-w-none dark:prose-invert">
+                  <p className="text-lg font-medium text-gray-900 dark:text-white break-words">
+                    {order.description}
+                  </p>
+                </div>
+              </div>
+            </div>
+            
+            {/* Notizen */}
+            <div className="bg-white dark:bg-gray-800 shadow sm:rounded-lg mt-6">
               <div className="px-4 py-5 sm:px-6 flex justify-between items-center">
                 <h3 className="text-lg leading-6 font-medium text-gray-900 dark:text-white">Notizen</h3>
                 {!isEditingNotes ? (
@@ -453,20 +468,6 @@ const OrderDetail = () => {
                     )}
                   </div>
                 )}
-              </div>
-            </div>
-            
-            {/* Beschreibung */}
-            <div className="bg-white dark:bg-gray-800 shadow sm:rounded-lg mt-6">
-              <div className="px-4 py-5 sm:px-6">
-                <h3 className="text-lg leading-6 font-medium text-gray-900 dark:text-white">Beschreibung</h3>
-              </div>
-              <div className="border-t border-gray-200 dark:border-gray-700 px-4 py-5 sm:px-6">
-                <div className="prose prose-sm max-w-none dark:prose-invert">
-                  <pre className="whitespace-pre-wrap font-sans text-sm text-gray-900 dark:text-white break-words overflow-hidden overflow-wrap-anywhere">
-                    {order.description}
-                  </pre>
-                </div>
               </div>
             </div>
           </div>

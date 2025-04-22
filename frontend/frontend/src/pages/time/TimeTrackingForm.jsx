@@ -17,6 +17,20 @@ const formatDateTimeForInput = (dateString) => {
   return date.toISOString().slice(0, 16) // Format: "YYYY-MM-DDThh:mm"
 }
 
+// Funktion zur Berechnung der Dauer in Minuten zwischen zwei Datumswerten
+const calculateDurationInMinutes = (startTime, endTime) => {
+  if (!startTime || !endTime) return 0;
+  
+  const start = new Date(startTime);
+  const end = new Date(endTime);
+  
+  if (end <= start) return 0;
+  
+  // Differenz in Millisekunden und Umrechnung in Minuten
+  const diffMs = end - start;
+  return Math.round(diffMs / 60000); // 60000 ms = 1 Minute
+}
+
 const TimeTrackingSchema = Yup.object().shape({
   description: Yup.string().required('Beschreibung ist erforderlich'),
   startTime: Yup.date().required('Startzeit ist erforderlich'),
@@ -84,11 +98,20 @@ const TimeTrackingForm = () => {
 
   const handleSubmit = async (values, { setSubmitting }) => {
     try {
+      // Berechne die Dauer in Minuten
+      const duration = calculateDurationInMinutes(values.startTime, values.endTime);
+      
+      // Füge die berechnete Dauer zum values-Objekt hinzu
+      const timeTrackingData = {
+        ...values,
+        duration: duration
+      };
+      
       if (id) {
-        await updateTimeTracking(id, values)
+        await updateTimeTracking(id, timeTrackingData)
         toast.success('Zeiteintrag erfolgreich aktualisiert')
       } else {
-        await createTimeTracking(values)
+        await createTimeTracking(timeTrackingData)
         toast.success('Zeiteintrag erfolgreich erstellt')
       }
       navigate('/time-tracking')

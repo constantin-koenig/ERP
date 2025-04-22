@@ -12,7 +12,7 @@ import { useTheme } from '../../context/ThemeContext'
 
 const OrderSchema = Yup.object().shape({
   customer: Yup.string().required('Kunde ist erforderlich'),
-  description: Yup.string().required('Beschreibung ist erforderlich'),
+  title: Yup.string().required('Titel ist erforderlich'),
   status: Yup.string().required('Status ist erforderlich'),
   items: Yup.array()
     .of(
@@ -38,7 +38,7 @@ const OrderForm = () => {
   const [initialValues, setInitialValues] = useState({
     orderNumber: '',
     customer: '',
-    description: '',
+    title: '',
     status: 'neu',
     items: [
       {
@@ -95,7 +95,7 @@ const OrderForm = () => {
           setInitialValues({
             orderNumber: order.orderNumber || '',
             customer: order.customer._id || order.customer || '',
-            description: order.description || '',
+            title: order.description || '', // Verwende das bestehende Beschreibungsfeld für den Titel
             status: order.status || 'neu',
             items: order.items && order.items.length > 0 ? order.items : [
               { description: '', quantity: 1, unitPrice: 0 }
@@ -120,11 +120,18 @@ const OrderForm = () => {
 
   const handleSubmit = async (values, { setSubmitting }) => {
     try {
+      // Konvertiere den Titel wieder in ein description-Feld für die API-Kompatibilität
+      const orderData = {
+        ...values,
+        description: values.title
+      };
+      delete orderData.title; // Entferne das title-Feld, da es nicht im Backend-Schema existiert
+
       if (id) {
-        await updateOrder(id, values)
+        await updateOrder(id, orderData)
         toast.success('Auftrag erfolgreich aktualisiert')
       } else {
-        await createOrder(values)
+        await createOrder(orderData)
         toast.success('Auftrag erfolgreich erstellt')
       }
       navigate('/orders')
@@ -223,6 +230,24 @@ const OrderForm = () => {
                 </div>
               </div>
 
+              {/* Titel-Feld (früher Beschreibung) nach oben verschieben */}
+              <div className="sm:col-span-6">
+                <label htmlFor="title" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                  Titel *
+                </label>
+                <div className="mt-1">
+                  <Field
+                    type="text"
+                    name="title"
+                    id="title"
+                    className={`shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-md ${
+                      errors.title && touched.title ? 'border-red-300 dark:border-red-500' : ''
+                    }`}
+                  />
+                  <ErrorMessage name="title" component="div" className="mt-1 text-sm text-red-600 dark:text-red-400" />
+                </div>
+              </div>
+
               {/* Neues Feld für den zugewiesenen Benutzer */}
               <div className="sm:col-span-3">
                 <label htmlFor="assignedTo" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
@@ -264,24 +289,6 @@ const OrderForm = () => {
                 </div>
               </div>
 
-              <div className="sm:col-span-6">
-                <label htmlFor="description" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                  Beschreibung *
-                </label>
-                <div className="mt-1">
-                  <Field
-                    as="textarea"
-                    name="description"
-                    id="description"
-                    rows={3}
-                    className={`shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-md ${
-                      errors.description && touched.description ? 'border-red-300 dark:border-red-500' : ''
-                    }`}
-                  />
-                  <ErrorMessage name="description" component="div" className="mt-1 text-sm text-red-600 dark:text-red-400" />
-                </div>
-              </div>
-
               <div className="sm:col-span-3">
                 <label htmlFor="startDate" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
                   Startdatum
@@ -308,6 +315,25 @@ const OrderForm = () => {
                     className="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-md"
                   />
                 </div>
+              </div>
+              
+              <div className="sm:col-span-6">
+                <label htmlFor="notes" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                  Notizen
+                </label>
+                <div className="mt-1">
+                  <Field
+                    as="textarea"
+                    id="notes"
+                    name="notes"
+                    rows={6}
+                    className="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-md notes-textarea notes-input"
+                    placeholder="Geben Sie hier interne Notizen zum Auftrag ein. Stichpunkte und Zeilenumbrüche werden korrekt angezeigt."
+                  />
+                </div>
+                <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                  Interne Hinweise, Anmerkungen und wichtige Informationen zum Auftrag. Zeilenumbrüche bleiben erhalten.
+                </p>
               </div>
               
               <div className="sm:col-span-6">
@@ -441,24 +467,6 @@ const OrderForm = () => {
                     </div>
                   )}
                 </FieldArray>
-              </div>
-              <div className="sm:col-span-6">
-                <label htmlFor="notes" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                  Notizen
-                </label>
-                <div className="mt-1">
-                  <Field
-                    as="textarea"
-                    id="notes"
-                    name="notes"
-                    rows={6}
-                    className="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-md notes-textarea notes-input"
-                    placeholder="Geben Sie hier interne Notizen zum Auftrag ein. Stichpunkte und Zeilenumbrüche werden korrekt angezeigt."
-                  />
-                </div>
-                <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                  Interne Hinweise, Anmerkungen und wichtige Informationen zum Auftrag. Zeilenumbrüche bleiben erhalten.
-                </p>
               </div>
             </div>
 
