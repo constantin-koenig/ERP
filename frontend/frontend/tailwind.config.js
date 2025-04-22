@@ -16,10 +16,55 @@ export default {
           card: '#2d2d2d',
           text: '#f3f4f6',
         }
+      },
+
+      utilities: {
+        '.overflow-wrap-anywhere': {
+          'overflow-wrap': 'anywhere'
+        },
+        '.break-words': {
+          'word-break': 'break-word',
+          'overflow-wrap': 'break-word'
+        },
+        '.break-all': {
+          'word-break': 'break-all'
+        },
+        '.text-wrap-all': {
+          'white-space': 'pre-wrap',
+          'word-wrap': 'break-word',
+          'overflow-wrap': 'break-word',
+          'word-break': 'normal',
+          'overflow': 'hidden',
+          'max-width': '100%'
+        }
       }
     },
   },
   plugins: [
     require('@tailwindcss/forms'),
+    function ({ addUtilities }) {
+      const newUtilities = {
+        '.overflow-wrap-anywhere': {
+          'overflow-wrap': 'anywhere'
+        },
+        '.break-words': {
+          'word-break': 'break-word',
+          'overflow-wrap': 'break-word'
+        },
+        '.break-all': {
+          'word-break': 'break-all'
+        },
+        '.text-wrap-all': {
+          'white-space': 'pre-wrap',
+          'word-wrap': 'break-word',
+          'overflow-wrap': 'break-word',
+          'word-break': 'normal',
+          'overflow': 'hidden',
+          'max-width': '100%'
+        }
+      }
+      addUtilities(newUtilities, ['responsive'])
+    }
   ],
 }
+

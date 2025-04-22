@@ -1,4 +1,4 @@
-// src/pages/orders/Orders.jsx (aktualisiert)
+// src/pages/orders/Orders.jsx - Mit Dark Mode Support und Search/Filter Funktionalität
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { toast } from 'react-toastify'
@@ -7,16 +7,112 @@ import { PlusIcon, PencilIcon, TrashIcon, EyeIcon, UserIcon } from '@heroicons/r
 import { format } from 'date-fns'
 import { de } from 'date-fns/locale'
 import ResponsiveTable from '../../components/ui/ResponsiveTable'
+import SearchAndFilter from '../../components/ui/SearchAndFilter'
 import { useTheme } from '../../context/ThemeContext'
 
 const Orders = () => {
   const [orders, setOrders] = useState([])
+  const [filteredOrders, setFilteredOrders] = useState([])
   const [loading, setLoading] = useState(true)
   const { isDarkMode } = useTheme()
+  
+  // Search and filter states
+  const [searchTerm, setSearchTerm] = useState('')
+  const [sortOption, setSortOption] = useState('orderNumber_asc')
+  const [filterValues, setFilterValues] = useState({
+    status: '',
+    assignedTo: ''
+  })
 
   useEffect(() => {
     fetchOrders()
   }, [])
+  
+  // Effect for filtering and sorting orders
+  useEffect(() => {
+    if (!orders.length) return setFilteredOrders([])
+    
+    let result = [...orders]
+    
+    // Apply search filter
+    if (searchTerm) {
+      const lowerSearch = searchTerm.toLowerCase()
+      result = result.filter(order => 
+        (order.orderNumber && order.orderNumber.toLowerCase().includes(lowerSearch)) ||
+        (order.description && order.description.toLowerCase().includes(lowerSearch)) ||
+        (order.customer && typeof order.customer === 'object' && order.customer.name && 
+         order.customer.name.toLowerCase().includes(lowerSearch))
+      )
+    }
+    
+    // Apply status filter
+    if (filterValues.status) {
+      result = result.filter(order => order.status === filterValues.status)
+    }
+    
+    // Apply assigned user filter
+    if (filterValues.assignedTo) {
+      if (filterValues.assignedTo === 'unassigned') {
+        result = result.filter(order => !order.assignedTo)
+      } else {
+        result = result.filter(order => {
+          if (!order.assignedTo) return false
+          if (typeof order.assignedTo === 'object') {
+            return order.assignedTo._id === filterValues.assignedTo
+          }
+          return order.assignedTo === filterValues.assignedTo
+        })
+      }
+    }
+    
+    // Apply sorting
+    if (sortOption) {
+      const [field, direction] = sortOption.split('_')
+      result.sort((a, b) => {
+        let comparison = 0
+        
+        // Special handling for customer name field
+        if (field === 'customer') {
+          const aName = (a.customer && typeof a.customer === 'object') ? a.customer.name || '' : ''
+          const bName = (b.customer && typeof b.customer === 'object') ? b.customer.name || '' : ''
+          comparison = aName.localeCompare(bName)
+        }
+        // Handle dates for proper comparison
+        else if (field === 'dueDate' || field === 'startDate' || field === 'createdAt') {
+          const aDate = a[field] ? new Date(a[field]) : new Date(0)
+          const bDate = b[field] ? new Date(b[field]) : new Date(0)
+          comparison = aDate - bDate
+        }
+        // Handle totalAmount calculation for custom sorting
+        else if (field === 'totalAmount') {
+          // Calculate total from items
+          const calculateTotal = (order) => {
+            if (!order.items || !order.items.length) return 0
+            return order.items.reduce((sum, item) => {
+              return sum + ((Number(item.quantity) || 0) * (Number(item.unitPrice) || 0))
+            }, 0)
+          }
+          const aTotal = calculateTotal(a)
+          const bTotal = calculateTotal(b)
+          comparison = aTotal - bTotal
+        }
+        // Default string comparison
+        else {
+          const aVal = a[field] || ''
+          const bVal = b[field] || ''
+          if (typeof aVal === 'string') {
+            comparison = aVal.localeCompare(bVal)
+          } else {
+            comparison = aVal - bVal
+          }
+        }
+        
+        return direction === 'asc' ? comparison : -comparison
+      })
+    }
+    
+    setFilteredOrders(result)
+  }, [orders, searchTerm, sortOption, filterValues])
 
   const fetchOrders = async () => {
     try {
@@ -39,6 +135,78 @@ const Orders = () => {
       } catch (error) {
         toast.error('Fehler beim Löschen des Auftrags')
       }
+    }
+  }
+  
+  const handleSearch = (value) => {
+    setSearchTerm(value)
+  }
+
+  const handleSort = (value) => {
+    setSortOption(value)
+  }
+  
+  const handleFilter = (filterKey, value) => {
+    setFilterValues(prev => ({
+      ...prev,
+      [filterKey]: value
+    }))
+  }
+  
+  // Sort options for the dropdown
+  const sortOptions = [
+    { value: 'orderNumber_asc', label: 'Auftragsnr. (aufsteigend)' },
+    { value: 'orderNumber_desc', label: 'Auftragsnr. (absteigend)' },
+    { value: 'customer_asc', label: 'Kunde (A-Z)' },
+    { value: 'customer_desc', label: 'Kunde (Z-A)' },
+    { value: 'status_asc', label: 'Status (A-Z)' },
+    { value: 'status_desc', label: 'Status (Z-A)' },
+    { value: 'dueDate_asc', label: 'Fälligkeitsdatum (aufsteigend)' },
+    { value: 'dueDate_desc', label: 'Fälligkeitsdatum (absteigend)' },
+    { value: 'totalAmount_asc', label: 'Betrag (aufsteigend)' },
+    { value: 'totalAmount_desc', label: 'Betrag (absteigend)' },
+    { value: 'createdAt_desc', label: 'Neuste zuerst' },
+    { value: 'createdAt_asc', label: 'Älteste zuerst' }
+  ]
+  
+  // Create a unique list of users from orders for the filter
+  const getAssignedUsers = () => {
+    const userMap = new Map()
+    orders.forEach(order => {
+      if (order.assignedTo) {
+        if (typeof order.assignedTo === 'object') {
+          userMap.set(order.assignedTo._id, {
+            value: order.assignedTo._id,
+            label: order.assignedTo.name
+          })
+        }
+      }
+    })
+    return Array.from(userMap.values())
+  }
+  
+  // Filter configuration
+  const filterConfig = {
+    status: {
+      label: 'Status',
+      value: filterValues.status,
+      onFilter: handleFilter,
+      options: [
+        { value: 'neu', label: 'Neu' },
+        { value: 'in Bearbeitung', label: 'In Bearbeitung' },
+        { value: 'abgeschlossen', label: 'Abgeschlossen' },
+        { value: 'storniert', label: 'Storniert' }
+      ]
+    },
+    assignedTo: {
+      label: 'Zugewiesen an',
+      value: filterValues.assignedTo,
+      onFilter: handleFilter,
+      allLabel: 'Alle Benutzer',
+      options: [
+        { value: 'unassigned', label: 'Nicht zugewiesen' },
+        ...getAssignedUsers()
+      ]
     }
   }
 
@@ -79,12 +247,13 @@ const Orders = () => {
     if (!order.items || order.items.length === 0) return 0;
     
     return order.items.reduce((total, item) => {
-      // Stelle sicher, dass die Werte als Zahlen behandelt werden
       const quantity = Number(item.quantity) || 0;
       const unitPrice = Number(item.unitPrice) || 0;
       return total + (quantity * unitPrice);
     }, 0);
   }
+
+  
 
   // Spalten-Definition für die Tabelle
   const columns = [
@@ -151,7 +320,6 @@ const Orders = () => {
       accessor: 'totalAmount',
       cell: (row) => (
         <div className="text-sm text-gray-500 dark:text-gray-400">
-          {/* Berechne den Gesamtbetrag aus den Items statt totalAmount zu verwenden */}
           {formatCurrency(calculateTotal(row))}
         </div>
       ),
@@ -270,7 +438,11 @@ const Orders = () => {
   // Leerer Zustand
   const emptyState = (
     <div className="bg-white dark:bg-gray-800 shadow overflow-hidden sm:rounded-md p-6 text-center">
-      <p className="text-gray-500 dark:text-gray-400">Keine Aufträge gefunden.</p>
+      <p className="text-gray-500 dark:text-gray-400">
+        {searchTerm || filterValues.status || filterValues.assignedTo ? 
+          'Keine Aufträge gefunden, die Ihren Suchkriterien entsprechen.' : 
+          'Keine Aufträge gefunden.'}
+      </p>
       <Link
         to="/orders/new"
         className="mt-2 inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-blue-700 dark:text-blue-400 bg-blue-100 dark:bg-blue-900 hover:bg-blue-200 dark:hover:bg-blue-800"
@@ -294,10 +466,20 @@ const Orders = () => {
           </Link>
         </div>
 
+        {/* Search and Filter Component */}
+        <SearchAndFilter 
+          onSearch={handleSearch}
+          onSort={handleSort}
+          sortOptions={sortOptions}
+          filters={filterConfig}
+          darkMode={isDarkMode}
+          searchPlaceholder="Aufträge suchen..."
+        />
+
         <div className="bg-white dark:bg-gray-800 shadow overflow-hidden sm:rounded-lg">
           <ResponsiveTable 
             columns={columns}
-            data={orders}
+            data={filteredOrders}
             renderMobileRow={renderMobileRow}
             isLoading={loading}
             emptyState={emptyState}

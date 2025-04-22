@@ -82,3 +82,59 @@ body {
 .dark .bg-yellow-100 {
   @apply bg-yellow-900 text-yellow-100;
 }
+
+/* Verbesserte Text-Anzeige mit Word-Wrap */
+.text-wrap-all {
+  white-space: pre-wrap !important;       /* Zeilenumbrüche bewahren */
+  word-wrap: break-word !important;       /* Lange Wörter umbrechen */
+  overflow-wrap: break-word !important;   /* Moderne Alternative zu word-wrap */
+  word-break: normal;                     /* Wörter normal umbrechen */
+  overflow: hidden;                       /* Verhindert Scrollbalken */
+  max-width: 100%;                        /* Text auf Container-Breite beschränken */
+  font-family: inherit;                   /* Standard-Schriftart beibehalten */
+}
+
+/* Tailwind-Utility-Klasse für diesen Zweck */
+@layer utilities {
+  .text-wrap-all {
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    word-break: normal;
+    overflow: hidden;
+    max-width: 100%;
+  }
+}
+
+/* Anpassungen für <pre> Elemente */
+pre.formatted-text {
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  word-break: normal;
+  overflow: hidden;
+  font-family: inherit;
+  font-size: inherit;
+  line-height: inherit;
+  margin: 0;
+  padding: 0;
+  background: transparent;
+  border: none;
+  color: inherit;
+}
+
+/* Für sehr lange Wörter oder URLs im Text */
+.break-all-words {
+  word-break: break-all; /* Extrem lange Wörter immer umbrechen */
+}
+
+/* Für Beschreibungsfelder und Notizen */
+.description-text,
+.notes-text {
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  word-break: normal;
+  overflow: hidden;
+  line-height: 1.5;
+}

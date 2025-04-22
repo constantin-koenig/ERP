@@ -259,7 +259,6 @@ const CustomerForm = () => {
                   />
                 </div>
               </div>
-
               <div className="sm:col-span-6">
                 <label htmlFor="notes" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
                   Notizen
@@ -270,11 +269,16 @@ const CustomerForm = () => {
                     id="notes"
                     name="notes"
                     rows={3}
-                    className="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-md"
+                    className="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-md notes-textarea"
                   />
                 </div>
+                <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                  Geben Sie hier Ihre Notizen ein. Zeilenumbrüche werden beibehalten.
+                </p>
               </div>
             </div>
+
+
 
             <div className="pt-5">
               <div className="flex justify-end">

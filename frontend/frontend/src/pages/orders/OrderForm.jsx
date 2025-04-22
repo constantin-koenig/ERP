@@ -444,19 +444,20 @@ const OrderForm = () => {
               </div>
 
               <div className="sm:col-span-6">
-                <label htmlFor="notes" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                  Notizen
-                </label>
-                <div className="mt-1">
-                  <Field
-                    as="textarea"
-                    id="notes"
-                    name="notes"
-                    rows={3}
-                    className="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-md"
-                  />
-                </div>
-              </div>
+  <label htmlFor="notes" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+    Notizen
+  </label>
+  <div className="mt-1">
+    <Field
+      as="textarea"
+      id="notes"
+      name="notes"
+      rows={4}
+      className="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-md notes-textarea"
+      placeholder="Geben Sie hier interne Notizen zum Auftrag ein. Stichpunkte und Zeilenumbrüche werden korrekt angezeigt."
+    />
+  </div>
+</div>
             </div>
 
             <div className="pt-5">
