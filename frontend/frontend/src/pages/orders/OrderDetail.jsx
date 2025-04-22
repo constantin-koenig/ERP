@@ -430,6 +430,12 @@ const OrderDetail = () => {
                   >
                     Abgerechnet
                   </th>
+                  <th
+                    scope="col"
+                    className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider"
+                  >
+                    Aktionen
+                  </th>
                 </tr>
               </thead>
               <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
@@ -442,10 +448,10 @@ const OrderDetail = () => {
                       {entry.description}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400 text-right">
-                      {format(new Date(entry.startTime), 'HH:mm', { locale: de })}
+                      {entry.startTime ? format(new Date(entry.startTime), 'HH:mm', { locale: de }) : '-'}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400 text-right">
-                      {format(new Date(entry.endTime), 'HH:mm', { locale: de })}
+                      {entry.endTime ? format(new Date(entry.endTime), 'HH:mm', { locale: de }) : '-'}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400 text-right">
                       {entry.duration
@@ -455,29 +461,116 @@ const OrderDetail = () => {
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400 text-center">
                       <span
                         className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                          invoices.status === 'erstellt'
+                          entry.billed
+                            ? isDarkMode ? 'bg-green-900 text-green-100' : 'bg-green-100 text-green-800'
+                            : isDarkMode ? 'bg-yellow-900 text-yellow-100' : 'bg-yellow-100 text-yellow-800'
+                        }`}
+                      >
+                        {entry.billed ? 'Ja' : 'Nein'}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-right">
+                      <Link to={`/time-tracking/${entry._id}/edit`} className="text-blue-600 dark:text-blue-400 hover:text-blue-900 dark:hover:text-blue-300 mx-1">
+                        Bearbeiten
+                      </Link>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          ) : (
+            <div className="px-6 py-4 text-center text-sm text-gray-500 dark:text-gray-400">
+              Keine Zeiteinträge für diesen Auftrag vorhanden.
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Rechnungen */}
+      <div className="bg-white dark:bg-gray-800 shadow overflow-hidden sm:rounded-lg">
+        <div className="px-4 py-5 sm:px-6 flex justify-between items-center">
+          <h3 className="text-lg leading-6 font-medium text-gray-900 dark:text-white">Rechnungen</h3>
+          <Link
+            to={`/invoices/new?orderId=${id}`}
+            className="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 dark:bg-blue-700 dark:hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 dark:focus:ring-offset-gray-800"
+          >
+            <DocumentTextIcon className="-ml-0.5 mr-2 h-4 w-4" />
+            Rechnung erstellen
+          </Link>
+        </div>
+        <div className="border-t border-gray-200 dark:border-gray-700">
+          {invoicesLoading ? (
+            <div className="text-center py-4">
+              <p className="text-sm text-gray-500 dark:text-gray-400">Rechnungen werden geladen...</p>
+            </div>
+          ) : invoices.length > 0 ? (
+            <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+              <thead className="bg-gray-50 dark:bg-gray-700">
+                <tr>
+                  <th
+                    scope="col"
+                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider"
+                  >
+                    Rechnungsnr.
+                  </th>
+                  <th
+                    scope="col"
+                    className="px-6 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider"
+                  >
+                    Status
+                  </th>
+                  <th
+                    scope="col"
+                    className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider"
+                  >
+                    Betrag
+                  </th>
+                  <th
+                    scope="col"
+                    className="px-6 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider"
+                  >
+                    Datum
+                  </th>
+                  <th
+                    scope="col"
+                    className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider"
+                  >
+                    Aktionen
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                {invoices.map((invoice) => (
+                  <tr key={invoice._id}>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
+                      {invoice.invoiceNumber}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400 text-center">
+                      <span
+                        className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                          invoice.status === 'erstellt'
                             ? isDarkMode ? 'bg-blue-900 text-blue-100' : 'bg-blue-100 text-blue-800'
-                            : invoices.status === 'versendet'
+                            : invoice.status === 'versendet'
                             ? isDarkMode ? 'bg-yellow-900 text-yellow-100' : 'bg-yellow-100 text-yellow-800'
-                            : invoices.status === 'bezahlt'
+                            : invoice.status === 'bezahlt'
                             ? isDarkMode ? 'bg-green-900 text-green-100' : 'bg-green-100 text-green-800'
                             : isDarkMode ? 'bg-red-900 text-red-100' : 'bg-red-100 text-red-800'
                         }`}
                       >
-                        {invoices.status}
+                        {invoice.status}
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400 text-right">
-                      {formatCurrency(invoices.totalAmount)}
+                      {formatCurrency(invoice.totalAmount)}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400 text-center">
-                      {formatDate(invoices.issueDate)}
+                      {formatDate(invoice.issueDate)}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400 text-right">
-                      <Link to={`/invoices/${invoices._id}`} className="text-blue-600 dark:text-blue-400 hover:text-blue-900 dark:hover:text-blue-300 mx-1">
+                      <Link to={`/invoices/${invoice._id}`} className="text-blue-600 dark:text-blue-400 hover:text-blue-900 dark:hover:text-blue-300 mx-1">
                         Details
                       </Link>
-                      <Link to={`/invoices/${invoices._id}/edit`} className="text-blue-600 dark:text-blue-400 hover:text-blue-900 dark:hover:text-blue-300 mx-1">
+                      <Link to={`/invoices/${invoice._id}/edit`} className="text-blue-600 dark:text-blue-400 hover:text-blue-900 dark:hover:text-blue-300 mx-1">
                         Bearbeiten
                       </Link>
                     </td>
