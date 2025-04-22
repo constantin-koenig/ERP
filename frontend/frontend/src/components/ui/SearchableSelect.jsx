@@ -37,7 +37,6 @@ const SearchableSelect = ({
   const [highlightedIndex, setHighlightedIndex] = useState(-1);
   const dropdownRef = useRef(null);
   const searchInputRef = useRef(null);
-  const optionsContainerRef = useRef(null);
   
   // Ausgewähltes Element finden
   const selectedOption = options.find(option => option.value === value);
@@ -88,16 +87,26 @@ const SearchableSelect = ({
   
   // Scroll zum hervorgehobenen Element
   useEffect(() => {
-    if (highlightedIndex >= 0 && optionsContainerRef.current) {
-      const highlightedElement = optionsContainerRef.current.children[highlightedIndex];
-      if (highlightedElement) {
-        highlightedElement.scrollIntoView({
-          block: 'nearest',
-          inline: 'nearest'
-        });
+    if (highlightedIndex >= 0 && isOpen) {
+      const containerElement = document.getElementById(`${id}-options-container`);
+      const highlightedElement = document.getElementById(`${id}-option-${highlightedIndex}`);
+      
+      if (containerElement && highlightedElement) {
+        // Berechne die Position des hervorgehobenen Elements relativ zum Container
+        const containerRect = containerElement.getBoundingClientRect();
+        const highlightedRect = highlightedElement.getBoundingClientRect();
+        
+        // Überprüfe, ob das Element außerhalb des sichtbaren Bereichs ist
+        if (highlightedRect.top < containerRect.top) {
+          // Scrolle nach oben, wenn das Element über dem sichtbaren Bereich ist
+          containerElement.scrollTop -= (containerRect.top - highlightedRect.top);
+        } else if (highlightedRect.bottom > containerRect.bottom) {
+          // Scrolle nach unten, wenn das Element unter dem sichtbaren Bereich ist
+          containerElement.scrollTop += (highlightedRect.bottom - containerRect.bottom);
+        }
       }
     }
-  }, [highlightedIndex]);
+  }, [highlightedIndex, isOpen, id]);
   
   // Handler für Optionsauswahl
   const handleSelectOption = (selectedValue) => {
@@ -129,16 +138,18 @@ const SearchableSelect = ({
       case 'ArrowDown':
         e.preventDefault();
         setHighlightedIndex(prevIndex => {
-          if (prevIndex >= filteredOptions.length - 1) return 0;
-          return prevIndex + 1;
+          // Berechne den nächsten Index, mit Umbruch zum Anfang
+          const nextIndex = prevIndex >= filteredOptions.length - 1 ? 0 : prevIndex + 1;
+          return nextIndex;
         });
         break;
         
       case 'ArrowUp':
         e.preventDefault();
         setHighlightedIndex(prevIndex => {
-          if (prevIndex <= 0) return filteredOptions.length - 1;
-          return prevIndex - 1;
+          // Berechne den vorherigen Index, mit Umbruch zum Ende
+          const prevIdx = prevIndex <= 0 ? filteredOptions.length - 1 : prevIndex - 1;
+          return prevIdx;
         });
         break;
         
@@ -181,16 +192,6 @@ const SearchableSelect = ({
       : 'bg-white text-gray-700 cursor-pointer dark:bg-gray-700 dark:text-white hover:bg-gray-50 dark:hover:bg-gray-600'
     }
     rounded-md border py-2 px-3 text-left shadow-sm focus:outline-none focus:ring-1 sm:text-sm
-  `;
-  
-  // CSS-Klassen für das Dropdown-Menü
-  const dropdownClasses = `
-    absolute z-20 mt-1 w-full rounded-md
-    ${isDarkMode 
-      ? 'bg-gray-800 border border-gray-700 shadow-lg' 
-      : 'bg-white border border-gray-200 shadow-lg'
-    }
-    max-h-60 overflow-auto focus:outline-none
   `;
   
   return (
@@ -239,14 +240,18 @@ const SearchableSelect = ({
       {/* Dropdown */}
       {isOpen && (
         <div 
-          className={dropdownClasses}
+          className={`absolute z-20 mt-1 w-full rounded-md ${
+            isDarkMode ? 'bg-gray-800 border border-gray-700' : 'bg-white border border-gray-200'
+          } shadow-lg`}
           role="listbox"
           tabIndex="-1"
           aria-labelledby={`${id}-label`}
+          style={{ maxHeight: '300px' }} // Maximale Höhe begrenzen
         >
           {/* Suchfeld (nur anzeigen, wenn mehr als threshold Optionen) */}
           {showSearch && (
-            <div className={`sticky top-0 z-10 p-2 border-b ${isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
+            <div className={`sticky top-0 z-10 p-2 ${isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}
+                 style={{ borderBottom: isDarkMode ? '1px solid #4b5563' : '1px solid #e5e7eb' }}>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                   <SearchIcon className={`h-4 w-4 ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`} aria-hidden="true" />
@@ -268,7 +273,10 @@ const SearchableSelect = ({
                 {searchTerm && (
                   <button 
                     className="absolute inset-y-0 right-0 pr-3 flex items-center"
-                    onClick={() => setSearchTerm("")}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSearchTerm("");
+                    }}
                   >
                     <XIcon 
                       className={`h-4 w-4 ${isDarkMode ? 'text-gray-400 hover:text-gray-300' : 'text-gray-500 hover:text-gray-700'}`}
@@ -280,22 +288,22 @@ const SearchableSelect = ({
             </div>
           )}
           
-          {/* Optionsliste */}
-          <ul 
-            className="py-1 overflow-auto max-h-60"
-            role="listbox"
-            ref={optionsContainerRef}
+          {/* Optionsliste - ein einzelner Scrollbereich */}
+          <div 
+            id={`${id}-options-container`}
+            className={`overflow-y-auto`}
+            style={{ maxHeight: showSearch ? '240px' : '300px' }} // Kleinere Höhe, wenn Suchfeld vorhanden
           >
             {/* Leerer Eintrag / Zurücksetzen */}
-            <li 
-              id={`${id}-option-empty`}
+            <div 
+              id={`${id}-option--1`}
               role="option"
               aria-selected={value === ""}
               className={`cursor-pointer select-none relative px-3 py-2 ${
                 value === "" 
                   ? isDarkMode ? 'bg-blue-600 text-white' : 'bg-blue-100 text-blue-900' 
                   : isDarkMode ? 'text-gray-300 hover:bg-gray-700' : 'text-gray-900 hover:bg-gray-100'
-              } ${highlightedIndex === -1 ? 'bg-gray-100 dark:bg-gray-700' : ''}`}
+              } ${highlightedIndex === -1 ? (isDarkMode ? 'bg-gray-700' : 'bg-gray-100') : ''}`}
               onClick={() => handleSelectOption("")}
               onMouseEnter={() => setHighlightedIndex(-1)}
             >
@@ -315,14 +323,14 @@ const SearchableSelect = ({
                   </svg>
                 </span>
               )}
-            </li>
+            </div>
             
             {/* Optionen */}
             {filteredOptions.length > 0 ? (
               filteredOptions.map((option, index) => (
-                <li 
+                <div 
                   key={option.value}
-                  id={`${id}-option-${option.value}`}
+                  id={`${id}-option-${index}`}
                   role="option"
                   aria-selected={option.value === value}
                   className={`cursor-pointer select-none relative px-3 py-2 ${
@@ -349,14 +357,14 @@ const SearchableSelect = ({
                       </svg>
                     </span>
                   )}
-                </li>
+                </div>
               ))
             ) : (
-              <li className={`px-3 py-2 ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+              <div className={`px-3 py-2 ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
                 Keine Ergebnisse gefunden
-              </li>
+              </div>
             )}
-          </ul>
+          </div>
         </div>
       )}
       
