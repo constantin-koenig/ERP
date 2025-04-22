@@ -679,10 +679,15 @@ const InvoiceForm = () => {
                     as="textarea"
                     id="notes"
                     name="notes"
-                    rows={3}
-                    className="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-md"
+                    rows={6}
+                    className="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-md notes-textarea notes-input"
+                    placeholder="Interne Notizen zur Rechnung. Diese erscheinen nicht auf der Rechnung selbst."
                   />
                 </div>
+                <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                  Interne Hinweise zur Rechnung, wie besondere Vereinbarungen, Zahlungsbedingungen oder Kontextinformationen.
+                  Zeilenumbrüche werden bei der Anzeige beibehalten.
+                </p>
               </div>
             </div>
 

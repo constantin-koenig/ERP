@@ -268,12 +268,13 @@ const CustomerForm = () => {
                     as="textarea"
                     id="notes"
                     name="notes"
-                    rows={3}
-                    className="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-md notes-textarea"
+                    rows={6}
+                    className="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-md notes-textarea notes-input"
+                    placeholder="Interne Notizen zum Kunden. Zeilenumbrüche werden beibehalten."
                   />
                 </div>
                 <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                  Geben Sie hier Ihre Notizen ein. Zeilenumbrüche werden beibehalten.
+                  Hier können Sie interne Hinweise, Kontaktpräferenzen und andere wichtige Informationen zum Kunden hinterlegen.
                 </p>
               </div>
             </div>

@@ -83,44 +83,220 @@ body {
   @apply bg-yellow-900 text-yellow-100;
 }
 
-/* Verbesserte Text-Anzeige mit Word-Wrap */
+/* Ergänzungen zu index.css für verbesserte Notizdarstellung */
+
+/* =====================
+   NOTIZFELDER IN FORMULAREN 
+   ===================== */
+
+/* Größere Textareas für Notizfelder */
+.notes-textarea {
+  min-height: 120px !important;
+  line-height: 1.5;
+}
+
+/* Für bessere Lesbarkeit in Formularen */
+textarea.form-textarea {
+  min-height: 120px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  font-family: inherit;
+  resize: vertical;
+}
+
+/* Verbesserte Darstellung für Notizen in Detailansichten */
+.notes-display {
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  font-family: inherit;
+  line-height: 1.6;
+  padding: 0.75rem;
+  margin: 0;
+  border: none;
+  border-radius: 0.375rem;
+  background-color: transparent !important;
+}
+
+/* Light mode styling */
+.notes-display {
+  background-color: transparent !important;
+}
+
+/* Dark mode styling */
+.dark .notes-display {
+  background-color: transparent !important;
+}
+
+/* Zusätzliche Klasse für Textareas mit Notizen */
+.notes-input {
+  min-height: 150px;
+  resize: vertical;
+  line-height: 1.6;
+}
+
+/* =====================
+   FORMATIERUNG VON PRE-TAGS 
+   ===================== */
+
+/* Verbesserungen für die pre-Tags, die zur Anzeige von formatierten Notizen verwendet werden */
+pre.formatted-notes {
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  font-family: inherit;
+  font-size: inherit;
+  line-height: 1.6;
+  margin: 0;
+  padding: 0;
+  background-color: transparent !important;
+  border-radius: 0.375rem;
+  border: none;
+}
+
+.dark pre.formatted-notes {
+  background-color: transparent !important;
+  color: inherit;
+}
+
+/* =====================
+   TABELLENZELLEN FÜR BESCHREIBUNGEN 
+   ===================== */
+
+/* Spezifisches Styling für Beschreibungstexte in Zeiterfassungstabellen */
+.time-entry-description {
+  white-space: pre-wrap !important;
+  word-break: normal;
+  overflow-wrap: break-word;
+  max-width: 400px; /* Begrenzt die Breite, damit die Tabelle nicht zu stark gedehnt wird */
+  line-height: 1.5;
+  font-family: inherit;
+  text-align: left;
+  background-color: transparent !important;
+}
+
+/* Entfernt den Hintergrund für pre-Tags in Tabellenzellen */
+td pre {
+  background-color: transparent !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  border: none !important;
+  font-family: inherit !important;
+  white-space: pre-wrap !important;
+  font-size: inherit !important;
+}
+
+/* Anpassung für die Tabellenzellen mit Beschreibungstext */
+td.description-cell {
+  white-space: normal !important;
+  max-width: 400px;
+  vertical-align: top;
+  padding-top: 0.75rem !important;
+  padding-bottom: 1rem !important;
+  background-color: transparent !important;
+}
+
+/* Hilft, lange Wörter zu umbrechen */
+.break-word {
+  word-break: break-word;
+}
+
+/* Zeilenhöhe für bessere Lesbarkeit in Tabellen */
+.table-text {
+  line-height: 1.5;
+}
+
+/* =====================
+   AUSRICHTUNG IN TABELLEN 
+   ===================== */
+
+/* Alle Tabellenzellen werden standardmäßig oben ausgerichtet */
+td {
+  vertical-align: top !important;
+  padding-top: 0.75rem !important;
+}
+
+/* Spezifisch für Beschreibungszellen */
+td.description-cell {
+  vertical-align: top !important;
+  padding-top: 0.75rem !important;
+}
+
+/* Für alle anderen Zellen in derselben Zeile wie eine description-cell */
+tr:has(td.description-cell) td {
+  vertical-align: top !important;
+  padding-top: 0.75rem !important;
+}
+
+/* Zusätzliche Klasse, die explizit auf alle Zellen angewendet werden kann */
+.align-top {
+  vertical-align: top !important;
+}
+
+/* Bessere Ausrichtung für Tabellenzellen mit Datum/Zeit */
+.date-cell, .time-cell {
+  vertical-align: top !important;
+  white-space: nowrap;
+}
+
+/* Für alle Status-Badges innerhalb von Zellen */
+td .status-badge {
+  margin-top: 0 !important;
+}
+
+/* =====================
+   HINTERGRUND-FIXES 
+   ===================== */
+
+/* Entfernen des Hintergrunds für pre-Tags in Tabellenzellen */
+td pre, 
+pre.formatted-notes,
+pre.time-entry-description {
+  background-color: transparent !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  border: none !important;
+  font-family: inherit !important;
+  white-space: pre-wrap !important;
+  font-size: inherit !important;
+  line-height: inherit !important;
+}
+
+/* Bei Verwendung der notes-display Klasse ebenfalls den Hintergrund entfernen */
+.notes-display {
+  background-color: transparent !important;
+}
+
+/* Verhindern, dass pre-Tags einen eigenen Hintergrund in Tabellenzellen haben */
+td pre.formatted-notes {
+  background-color: transparent !important;
+}
+
+/* Spezifisch für die time-entry-description Klasse */
+.time-entry-description {
+  background-color: transparent !important;
+}
+
+/* Dark Mode Anpassungen */
+.dark td pre,
+.dark pre.formatted-notes,
+.dark pre.time-entry-description,
+.dark .notes-display {
+  background-color: transparent !important;
+}
+
+/* =====================
+   TEXT WRAPPING UTILITIES 
+   ===================== */
+
+/* Tailwind-Utility-Klasse für Textumbrüche */
 .text-wrap-all {
-  white-space: pre-wrap !important;       /* Zeilenumbrüche bewahren */
-  word-wrap: break-word !important;       /* Lange Wörter umbrechen */
-  overflow-wrap: break-word !important;   /* Moderne Alternative zu word-wrap */
-  word-break: normal;                     /* Wörter normal umbrechen */
-  overflow: hidden;                       /* Verhindert Scrollbalken */
-  max-width: 100%;                        /* Text auf Container-Breite beschränken */
-  font-family: inherit;                   /* Standard-Schriftart beibehalten */
-}
-
-/* Tailwind-Utility-Klasse für diesen Zweck */
-@layer utilities {
-  .text-wrap-all {
-    white-space: pre-wrap;
-    word-wrap: break-word;
-    overflow-wrap: break-word;
-    word-break: normal;
-    overflow: hidden;
-    max-width: 100%;
-  }
-}
-
-/* Anpassungen für <pre> Elemente */
-pre.formatted-text {
   white-space: pre-wrap;
   word-wrap: break-word;
   overflow-wrap: break-word;
   word-break: normal;
   overflow: hidden;
-  font-family: inherit;
-  font-size: inherit;
-  line-height: inherit;
-  margin: 0;
-  padding: 0;
-  background: transparent;
-  border: none;
-  color: inherit;
+  max-width: 100%;
 }
 
 /* Für sehr lange Wörter oder URLs im Text */

@@ -435,7 +435,7 @@ const OrderDetail = () => {
               <div className="border-t border-gray-200 dark:border-gray-700 px-4 py-5 sm:px-6">
                 {isEditingNotes ? (
                   <textarea
-                    className="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-md h-64 font-sans"
+                    className="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-md notes-input font-sans"
                     value={notes}
                     onChange={(e) => setNotes(e.target.value)}
                     placeholder="Fügen Sie hier Ihre Notizen zum Auftrag hinzu..."
@@ -443,7 +443,7 @@ const OrderDetail = () => {
                 ) : (
                   <div className="prose prose-sm max-w-none dark:prose-invert">
                     {order.notes ? (
-                      <pre className="whitespace-pre-wrap font-sans text-sm text-gray-900 dark:text-white break-words overflow-hidden overflow-wrap-anywhere">
+                      <pre className="formatted-notes text-sm text-gray-900 dark:text-white break-words">
                         {order.notes}
                       </pre>
                     ) : (
@@ -729,28 +729,30 @@ const OrderDetail = () => {
                   </thead>
                   <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
                     {timeEntries.map((entry) => (
-                      <tr key={entry._id}>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
+                      <tr key={entry._id} className="align-top">
+                        <td className="px-6 py-4 align-top date-cell text-sm text-gray-900 dark:text-white">
                           {formatDate(entry.startTime)}
                         </td>
-                        <td className="px-6 py-4 text-sm text-gray-900 dark:text-white max-w-xs truncate">
-                          {entry.description}
+                        <td className="px-6 py-4 description-cell">
+                          <pre className="time-entry-description break-word table-text formatted-notes whitespace-pre-wrap text-sm text-gray-900 dark:text-white">
+                            {entry.description}
+                          </pre>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400 text-right">
+                        <td className="px-6 py-4 align-top time-cell text-sm text-gray-500 dark:text-gray-400 text-right">
                           {entry.startTime ? format(new Date(entry.startTime), 'HH:mm', { locale: de }) : '-'}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400 text-right">
+                        <td className="px-6 py-4 align-top time-cell text-sm text-gray-500 dark:text-gray-400 text-right">
                           {entry.endTime ? format(new Date(entry.endTime), 'HH:mm', { locale: de }) : '-'}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400 text-right">
+                        <td className="px-6 py-4 align-top text-sm text-gray-500 dark:text-gray-400 text-right">
                           {formatDuration(entry.duration)}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-center">
-                          <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getTimeEntryStatusBadgeColor(entry.billed)}`}>
+                        <td className="px-6 py-4 align-top text-center">
+                          <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full status-badge ${getTimeEntryStatusBadgeColor(entry.billed)}`}>
                             {entry.billed ? 'Abgerechnet' : 'Offen'}
                           </span>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                        <td className="px-6 py-4 align-top text-sm font-medium text-right">
                           <Link
                             to={`/time-tracking/${entry._id}/edit`}
                             className="text-blue-600 dark:text-blue-400 hover:text-blue-900 dark:hover:text-blue-300"

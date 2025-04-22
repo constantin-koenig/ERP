@@ -251,7 +251,13 @@ const InvoiceDetail = () => {
             <div className="bg-gray-50 dark:bg-gray-700 px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
               <dt className="text-sm font-medium text-gray-500 dark:text-gray-300">Notizen</dt>
               <dd className="mt-1 text-sm text-gray-900 dark:text-white sm:mt-0 sm:col-span-2">
-                {invoice.notes || '-'}
+                {invoice.notes ? (
+                  <pre className="formatted-notes break-words">
+                    {invoice.notes}
+                  </pre>
+                ) : (
+                  <span className="text-gray-500 dark:text-gray-400 italic">Keine Notizen vorhanden</span>
+                )}
               </dd>
             </div>
           </dl>
@@ -352,7 +358,7 @@ const InvoiceDetail = () => {
             <h3 className="text-lg leading-6 font-medium text-gray-900 dark:text-white">Abgerechnete Arbeitszeiten</h3>
           </div>
           <div className="border-t border-gray-200 dark:border-gray-700">
-            <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+          <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
               <thead className="bg-gray-50 dark:bg-gray-700">
                 <tr>
                   <th
@@ -389,20 +395,22 @@ const InvoiceDetail = () => {
               </thead>
               <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
                 {invoice.timeTracking.map((entry) => (
-                  <tr key={entry._id}>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
+                  <tr key={entry._id} className="align-top">
+                    <td className="px-6 py-4 align-top date-cell text-sm text-gray-900 dark:text-white">
                       {formatDate(entry.startTime)}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
-                      {entry.description}
+                    <td className="px-6 py-4 description-cell">
+                      <pre className="time-entry-description break-word table-text formatted-notes whitespace-pre-wrap text-sm text-gray-900 dark:text-white">
+                        {entry.description}
+                      </pre>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400 text-right">
+                    <td className="px-6 py-4 align-top time-cell text-sm text-gray-500 dark:text-gray-400 text-right">
                       {entry.startTime ? format(new Date(entry.startTime), 'HH:mm', { locale: de }) : '-'}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400 text-right">
+                    <td className="px-6 py-4 align-top time-cell text-sm text-gray-500 dark:text-gray-400 text-right">
                       {entry.endTime ? format(new Date(entry.endTime), 'HH:mm', { locale: de }) : '-'}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400 text-right">
+                    <td className="px-6 py-4 align-top text-sm text-gray-500 dark:text-gray-400 text-right">
                       {entry.duration
                         ? `${Math.floor(entry.duration / 60)}h ${entry.duration % 60}min`
                         : '-'}

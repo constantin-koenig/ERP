@@ -156,26 +156,27 @@ const TimeTrackingForm = () => {
               </div>
 
               <div className="sm:col-span-6">
-  <label htmlFor="description" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-    Beschreibung *
-  </label>
-  <div className="mt-1">
-    <Field
-      as="textarea"
-      name="description"
-      id="description"
-      rows={4}
-      className={`shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-md description-textarea ${
-        errors.description && touched.description ? 'border-red-300 dark:border-red-500' : ''
-      }`}
-      placeholder="Beschreiben Sie hier die durchgeführten Tätigkeiten. Stichpunkte und Zeilenumbrüche bleiben erhalten."
-    />
-    <ErrorMessage name="description" component="div" className="mt-1 text-sm text-red-600 dark:text-red-400" />
-  </div>
-  <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-    Bitte geben Sie die durchgeführten Arbeiten detailliert an. Listen Sie einzelne Schritte gerne mit Aufzählungszeichen auf.
-  </p>
-</div>
+                <label htmlFor="description" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                  Beschreibung *
+                </label>
+                <div className="mt-1">
+                  <Field
+                    as="textarea"
+                    name="description"
+                    id="description"
+                    rows={6}
+                    className={`shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-md notes-textarea notes-input ${
+                      errors.description && touched.description ? 'border-red-300 dark:border-red-500' : ''
+                    }`}
+                    placeholder="Beschreiben Sie hier die durchgeführten Tätigkeiten. Stichpunkte und Zeilenumbrüche bleiben erhalten."
+                  />
+                  <ErrorMessage name="description" component="div" className="mt-1 text-sm text-red-600 dark:text-red-400" />
+                </div>
+                <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                  Bitte beschreiben Sie Ihre Tätigkeiten detailliert. Listen Sie einzelne Schritte gerne mit Aufzählungszeichen auf.
+                  Der Text wird genau so angezeigt, wie Sie ihn eingeben, einschließlich Zeilenumbrüchen.
+                </p>
+              </div>
 
               <div className="sm:col-span-3">
                 <label htmlFor="startTime" className="block text-sm font-medium text-gray-700 dark:text-gray-300">

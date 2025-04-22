@@ -442,22 +442,24 @@ const OrderForm = () => {
                   )}
                 </FieldArray>
               </div>
-
               <div className="sm:col-span-6">
-  <label htmlFor="notes" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-    Notizen
-  </label>
-  <div className="mt-1">
-    <Field
-      as="textarea"
-      id="notes"
-      name="notes"
-      rows={4}
-      className="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-md notes-textarea"
-      placeholder="Geben Sie hier interne Notizen zum Auftrag ein. Stichpunkte und Zeilenumbrüche werden korrekt angezeigt."
-    />
-  </div>
-</div>
+                <label htmlFor="notes" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                  Notizen
+                </label>
+                <div className="mt-1">
+                  <Field
+                    as="textarea"
+                    id="notes"
+                    name="notes"
+                    rows={6}
+                    className="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-md notes-textarea notes-input"
+                    placeholder="Geben Sie hier interne Notizen zum Auftrag ein. Stichpunkte und Zeilenumbrüche werden korrekt angezeigt."
+                  />
+                </div>
+                <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                  Interne Hinweise, Anmerkungen und wichtige Informationen zum Auftrag. Zeilenumbrüche bleiben erhalten.
+                </p>
+              </div>
             </div>
 
             <div className="pt-5">

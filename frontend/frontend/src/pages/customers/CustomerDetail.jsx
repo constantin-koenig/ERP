@@ -227,9 +227,15 @@ const CustomerDetail = () => {
             </div>
             <div className="bg-gray-50 dark:bg-gray-700 px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
               <dt className="text-sm font-medium text-gray-500 dark:text-gray-300">Notizen</dt>
-              <pre className="whitespace-pre-wrap font-sans text-sm text-gray-900 dark:text-white break-words overflow-hidden overflow-wrap-anywhere">
-  {customer.notes}
-</pre>
+              <dd className="mt-1 sm:mt-0 sm:col-span-2">
+                {customer.notes ? (
+                  <pre className="formatted-notes text-sm text-gray-900 dark:text-white break-words">
+                    {customer.notes}
+                  </pre>
+                ) : (
+                  <span className="text-gray-500 dark:text-gray-400 italic">Keine Notizen vorhanden</span>
+                )}
+              </dd>
             </div>
           </dl>
         </div>
