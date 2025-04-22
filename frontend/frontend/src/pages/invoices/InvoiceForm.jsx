@@ -1,4 +1,4 @@
-// src/pages/invoices/InvoiceForm.jsx - Mit Dark Mode Support und korrigierter Berechnung
+// src/pages/invoices/InvoiceForm.jsx - Mit durchsuchbarer Auswahl
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { toast } from 'react-toastify'
@@ -10,6 +10,7 @@ import { getOrders } from '../../services/orderService'
 import { getTimeTrackings } from '../../services/timeTrackingService'
 import { ArrowLeftIcon, TrashIcon, PlusIcon } from '@heroicons/react/outline'
 import { useTheme } from '../../context/ThemeContext'
+import SearchableSelect from '../../components/ui/SearchableSelect' // Durchsuchbares Dropdown
 
 const InvoiceSchema = Yup.object().shape({
   customer: Yup.string().required('Kunde ist erforderlich'),
@@ -144,13 +145,25 @@ const InvoiceForm = () => {
     fetchInvoice()
   }, [id, navigate])
 
+  // Format der Daten für die SearchableSelect-Komponenten
+  const customerOptions = customers.map(customer => ({
+    value: customer._id,
+    label: customer.name
+  }));
+
   // Filtern der Aufträge basierend auf dem ausgewählten Kunden
   const filteredOrders = selectedCustomerId 
     ? orders.filter(order => 
         order.customer === selectedCustomerId || 
         (order.customer && order.customer._id === selectedCustomerId)
       )
-    : orders
+    : orders;
+
+  // Formatieren der gefilterten Aufträge für die SearchableSelect
+  const orderOptions = filteredOrders.map(order => ({
+    value: order._id,
+    label: `${order.orderNumber} - ${order.description.substring(0, 40)}${order.description.length > 40 ? '...' : ''}`
+  }));
 
   // Filtern der Zeiteinträge basierend auf dem ausgewählten Auftrag
   const filteredTimeEntries = selectedOrderId 
@@ -158,7 +171,25 @@ const InvoiceForm = () => {
         entry.order === selectedOrderId || 
         (entry.order && entry.order._id === selectedOrderId)
       )
-    : timeEntries
+    : timeEntries;
+
+  // Formatieren der Zeiteinträge für die Darstellung
+  const timeEntryOptions = filteredTimeEntries.map(entry => {
+    // Datum und Beschreibung kürzen für bessere Lesbarkeit
+    const date = new Date(entry.startTime).toLocaleDateString('de-DE');
+    const duration = entry.duration 
+      ? `${Math.floor(entry.duration / 60)}h ${entry.duration % 60}min` 
+      : '-';
+    // Beschreibung auf 40 Zeichen begrenzen
+    const shortDesc = entry.description && entry.description.length > 40 
+      ? `${entry.description.substring(0, 40)}...` 
+      : entry.description;
+      
+    return {
+      value: entry._id,
+      label: `${date}: ${shortDesc} (${duration})`
+    };
+  });
 
   const handleCustomerChange = (e, setFieldValue) => {
     const customerId = e.target.value
@@ -278,23 +309,16 @@ const InvoiceForm = () => {
                   Kunde *
                 </label>
                 <div className="mt-1">
-                  <Field
-                    as="select"
+                  {/* Durchsuchbare Kundenauswahl */}
+                  <SearchableSelect
                     name="customer"
                     id="customer"
-                    className={`shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-md ${
-                      errors.customer && touched.customer ? 'border-red-300 dark:border-red-500' : ''
-                    }`}
+                    value={values.customer}
                     onChange={(e) => handleCustomerChange(e, setFieldValue)}
-                  >
-                    <option value="">Bitte Kunde auswählen</option>
-                    {customers.map(customer => (
-                      <option key={customer._id} value={customer._id}>
-                        {customer.name}
-                      </option>
-                    ))}
-                  </Field>
-                  <ErrorMessage name="customer" component="div" className="mt-1 text-sm text-red-600 dark:text-red-400" />
+                    options={customerOptions}
+                    placeholder="Bitte Kunde auswählen"
+                    error={errors.customer && touched.customer ? errors.customer : ""}
+                  />
                 </div>
               </div>
 
@@ -303,22 +327,16 @@ const InvoiceForm = () => {
                   Auftrag
                 </label>
                 <div className="mt-1">
-                  <Field
-                    as="select"
+                  {/* Durchsuchbare Auftragsauswahl */}
+                  <SearchableSelect
                     name="order"
                     id="order"
-                    className="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-md"
+                    value={values.order}
                     onChange={(e) => handleOrderChange(e, setFieldValue)}
+                    options={orderOptions}
+                    placeholder="Keinen Auftrag auswählen"
                     disabled={!selectedCustomerId}
-                  >
-                    <option value="">Keinen Auftrag auswählen</option>
-                    {filteredOrders.map(order => (
-                      <option key={order._id} value={order._id}>
-                        {order.orderNumber} - {order.description.substring(0, 40)}
-                        {order.description.length > 40 ? '...' : ''}
-                      </option>
-                    ))}
-                  </Field>
+                  />
                   {!selectedCustomerId && (
                     <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
                       Bitte zuerst einen Kunden auswählen
@@ -546,7 +564,7 @@ const InvoiceForm = () => {
                 </FieldArray>
               </div>
 
-              {/* Ausgewählte Zeiteinträge */}
+              {/* Ausgewählte Zeiteinträge mit SearchableSelect */}
               {(selectedOrderId || selectedCustomerId) && filteredTimeEntries.length > 0 && (
                 <div className="sm:col-span-6">
                   <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-3">Zeiteinträge</h3>
@@ -575,6 +593,32 @@ const InvoiceForm = () => {
                         </span>
                       </label>
                     </div>
+
+                    {/* Suchfeld für Zeiteinträge, wenn mehr als 5 vorhanden sind */}
+                    {filteredTimeEntries.length > 5 && (
+                      <div className="mb-4">
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                          Zeiteinträge durchsuchen
+                        </label>
+                        <div className="flex space-x-2">
+                          <SearchableSelect
+                            id="timeEntrySelect"
+                            name="timeEntrySelect"
+                            value=""
+                            onChange={(e) => {
+                              const selectedId = e.target.value;
+                              if (selectedId && !values.timeTracking.includes(selectedId)) {
+                                setFieldValue('timeTracking', [...values.timeTracking, selectedId]);
+                              }
+                            }}
+                            options={timeEntryOptions.filter(option => !values.timeTracking.includes(option.value))}
+                            placeholder="Zeiteinträge suchen und hinzufügen"
+                            threshold={0} // Immer Suchfeld anzeigen
+                          />
+                        </div>
+                      </div>
+                    )}
+
                     <div className="max-h-60 overflow-y-auto">
                       {filteredTimeEntries.map(entry => (
                         <div key={entry._id} className="mb-2">
@@ -715,5 +759,4 @@ const InvoiceForm = () => {
     </div>
   )
 }
-
 export default InvoiceForm

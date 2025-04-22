@@ -1,4 +1,4 @@
-// src/pages/orders/OrderForm.jsx (aktualisiert)
+// src/pages/orders/OrderForm.jsx
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { toast } from 'react-toastify'
@@ -9,6 +9,7 @@ import { getCustomers } from '../../services/customerService'
 import { getAssignableUsers } from '../../services/authService'
 import { ArrowLeftIcon, TrashIcon, PlusIcon } from '@heroicons/react/outline'
 import { useTheme } from '../../context/ThemeContext'
+import SearchableSelect from '../../components/ui/SearchableSelect' // Neue Komponente importieren
 
 const OrderSchema = Yup.object().shape({
   customer: Yup.string().required('Kunde ist erforderlich'),
@@ -154,6 +155,18 @@ const OrderForm = () => {
     }, 0);
   }
 
+  // Kundenoptionen für SearchableSelect formatieren
+  const customerOptions = customers.map(customer => ({
+    value: customer._id,
+    label: customer.name
+  }));
+
+  // Benutzeroptionen für SearchableSelect formatieren
+  const userOptions = users.map(user => ({
+    value: user._id,
+    label: `${user.name} (${user.email})`
+  }));
+
   if (loading || customersLoading || usersLoading) {
     return (
       <div className="text-center py-10">
@@ -185,7 +198,7 @@ const OrderForm = () => {
         onSubmit={handleSubmit}
         enableReinitialize
       >
-        {({ isSubmitting, values, errors, touched }) => (
+        {({ isSubmitting, values, errors, touched, setFieldValue }) => (
           <Form className="space-y-6">
             <div className="grid grid-cols-1 gap-y-6 gap-x-4 sm:grid-cols-6">
               <div className="sm:col-span-3">
@@ -211,22 +224,17 @@ const OrderForm = () => {
                   Kunde *
                 </label>
                 <div className="mt-1">
-                  <Field
-                    as="select"
+                  {/* SearchableSelect anstelle von normalem Select */}
+                  <SearchableSelect
                     name="customer"
                     id="customer"
-                    className={`shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-md ${
-                      errors.customer && touched.customer ? 'border-red-300 dark:border-red-500' : ''
-                    }`}
-                  >
-                    <option value="">Bitte Kunde auswählen</option>
-                    {customers.map(customer => (
-                      <option key={customer._id} value={customer._id}>
-                        {customer.name}
-                      </option>
-                    ))}
-                  </Field>
-                  <ErrorMessage name="customer" component="div" className="mt-1 text-sm text-red-600 dark:text-red-400" />
+                    value={values.customer}
+                    onChange={(e) => setFieldValue('customer', e.target.value)}
+                    options={customerOptions}
+                    placeholder="Bitte Kunde auswählen"
+                    error={errors.customer && touched.customer ? errors.customer : ""}
+                    threshold={5} // Zeige Suche ab 5 Einträgen
+                  />
                 </div>
               </div>
 
@@ -248,25 +256,21 @@ const OrderForm = () => {
                 </div>
               </div>
 
-              {/* Neues Feld für den zugewiesenen Benutzer */}
+              {/* Neues Feld für den zugewiesenen Benutzer mit SearchableSelect */}
               <div className="sm:col-span-3">
                 <label htmlFor="assignedTo" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
                   Zugewiesen an
                 </label>
                 <div className="mt-1">
-                  <Field
-                    as="select"
+                  <SearchableSelect
                     name="assignedTo"
                     id="assignedTo"
-                    className="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-md"
-                  >
-                    <option value="">Keinem Benutzer zugewiesen</option>
-                    {users.map(user => (
-                      <option key={user._id} value={user._id}>
-                        {user.name} ({user.email})
-                      </option>
-                    ))}
-                  </Field>
+                    value={values.assignedTo}
+                    onChange={(e) => setFieldValue('assignedTo', e.target.value)}
+                    options={userOptions}
+                    placeholder="Keinem Benutzer zugewiesen"
+                    threshold={5} // Zeige Suche ab 5 Einträgen
+                  />
                 </div>
               </div>
 

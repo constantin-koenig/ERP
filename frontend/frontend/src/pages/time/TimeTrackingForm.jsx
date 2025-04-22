@@ -1,4 +1,4 @@
-// src/pages/time/TimeTrackingForm.jsx - Mit Dark Mode Support
+// src/pages/time/TimeTrackingForm.jsx - Mit durchsuchbarer Auswahl
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { toast } from 'react-toastify'
@@ -9,6 +9,7 @@ import { getOrders } from '../../services/orderService'
 import { ArrowLeftIcon } from '@heroicons/react/outline'
 import { format } from 'date-fns'
 import { useTheme } from '../../context/ThemeContext'
+import SearchableSelect from '../../components/ui/SearchableSelect' // Durchsuchbares Dropdown
 
 // Funktion zum Formatieren von Datum und Zeit für HTML-Inputfelder
 const formatDateTimeForInput = (dateString) => {
@@ -122,6 +123,12 @@ const TimeTrackingForm = () => {
     }
   }
 
+  // Formatiere die Aufträge für das durchsuchbare Dropdown
+  const orderOptions = orders.map(order => ({
+    value: order._id,
+    label: `${order.orderNumber} - ${order.description.substring(0, 40)}${order.description.length > 40 ? '...' : ''}`
+  }));
+
   if (loading || ordersLoading) {
     return (
       <div className="text-center py-10">
@@ -153,7 +160,7 @@ const TimeTrackingForm = () => {
         onSubmit={handleSubmit}
         enableReinitialize
       >
-        {({ isSubmitting, values, errors, touched }) => (
+        {({ isSubmitting, values, errors, touched, setFieldValue }) => (
           <Form className="space-y-6">
             <div className="grid grid-cols-1 gap-y-6 gap-x-4 sm:grid-cols-6">
               <div className="sm:col-span-3">
@@ -161,20 +168,16 @@ const TimeTrackingForm = () => {
                   Auftrag
                 </label>
                 <div className="mt-1">
-                  <Field
-                    as="select"
+                  {/* Durchsuchbares Dropdown für Aufträge */}
+                  <SearchableSelect
                     name="order"
                     id="order"
-                    className="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-md"
-                  >
-                    <option value="">Keinem Auftrag zuordnen</option>
-                    {orders.map(order => (
-                      <option key={order._id} value={order._id}>
-                        {order.orderNumber} - {order.description.substring(0, 40)}
-                        {order.description.length > 40 ? '...' : ''}
-                      </option>
-                    ))}
-                  </Field>
+                    value={values.order}
+                    onChange={(e) => setFieldValue('order', e.target.value)}
+                    options={orderOptions}
+                    placeholder="Keinem Auftrag zuordnen"
+                    threshold={5} // Zeige Suche ab 5 Einträgen
+                  />
                 </div>
               </div>
 
