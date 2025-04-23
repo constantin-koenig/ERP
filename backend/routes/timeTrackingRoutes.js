@@ -6,7 +6,8 @@ const {
   getTimeTrackingsByOrder,
   createTimeTracking,
   updateTimeTracking,
-  deleteTimeTracking
+  deleteTimeTracking,
+  assignTimeTracking
 } = require('../controllers/timeTrackingController');
 const { protect } = require('../middleware/auth');
 
@@ -31,5 +32,9 @@ router.route('/:id')
   .get(protect, getTimeTracking)
   .put(protect, updateTimeTracking)
   .delete(protect, deleteTimeTracking);
+
+// Neue Route für die Benutzerzuweisung
+router.route('/:id/assign')
+  .put(protect, assignTimeTracking);
 
 module.exports = router;

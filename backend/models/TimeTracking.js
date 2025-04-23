@@ -6,6 +6,12 @@ const TimeTrackingSchema = new mongoose.Schema({
     ref: 'User',
     required: [true, 'Bitte geben Sie einen Benutzer an']
   },
+  // Hinzugefügtes Feld für den zugewiesenen Benutzer
+  assignedTo: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    required: false // Optional
+  },
   order: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Order'

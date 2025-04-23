@@ -1,4 +1,4 @@
-// src/pages/time/TimeTrackingForm.jsx - Mit durchsuchbarer Auswahl
+// src/pages/time/TimeTrackingForm.jsx
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { toast } from 'react-toastify'
@@ -6,10 +6,11 @@ import { Formik, Form, Field, ErrorMessage } from 'formik'
 import * as Yup from 'yup'
 import { createTimeTracking, getTimeTracking, updateTimeTracking } from '../../services/timeTrackingService'
 import { getOrders } from '../../services/orderService'
+import { getAssignableUsers } from '../../services/authService'
 import { ArrowLeftIcon } from '@heroicons/react/outline'
 import { format } from 'date-fns'
 import { useTheme } from '../../context/ThemeContext'
-import SearchableSelect from '../../components/ui/SearchableSelect' // Durchsuchbares Dropdown
+import SearchableSelect from '../../components/ui/SearchableSelect'
 
 // Funktion zum Formatieren von Datum und Zeit für HTML-Inputfelder
 const formatDateTimeForInput = (dateString) => {
@@ -52,26 +53,38 @@ const TimeTrackingForm = () => {
   const { isDarkMode } = useTheme()
 
   const [orders, setOrders] = useState([])
+  const [users, setUsers] = useState([]) // Benutzer für Zuweisung
   const [initialValues, setInitialValues] = useState({
     order: orderId || '',
     description: '',
+    assignedTo: '', // Neu: Feld für zugewiesene Benutzer
     startTime: formatDateTimeForInput(new Date()),
     endTime: formatDateTimeForInput(new Date(Date.now() + 60 * 60 * 1000)) // Standard: 1 Stunde später
   })
   const [loading, setLoading] = useState(id ? true : false)
   const [ordersLoading, setOrdersLoading] = useState(true)
+  const [usersLoading, setUsersLoading] = useState(true)
 
   useEffect(() => {
-    const fetchOrders = async () => {
+    const fetchData = async () => {
       try {
-        const response = await getOrders()
-        setOrders(response.data.data)
-        setOrdersLoading(false)
+        // Aufträge und zuweisbare Benutzer parallel laden
+        const [ordersResponse, usersResponse] = await Promise.all([
+          getOrders(),
+          getAssignableUsers()
+        ]);
+        
+        setOrders(ordersResponse.data.data);
+        setOrdersLoading(false);
+        
+        setUsers(usersResponse.data.data);
+        setUsersLoading(false);
       } catch (error) {
-        toast.error('Fehler beim Laden der Aufträge')
-        setOrdersLoading(false)
+        toast.error('Fehler beim Laden der Daten');
+        setOrdersLoading(false);
+        setUsersLoading(false);
       }
-    }
+    };
 
     const fetchTimeTracking = async () => {
       if (id) {
@@ -82,6 +95,7 @@ const TimeTrackingForm = () => {
           setInitialValues({
             order: timeTracking.order?._id || timeTracking.order || '',
             description: timeTracking.description || '',
+            assignedTo: timeTracking.assignedTo?._id || timeTracking.assignedTo || '', // Zugewiesener Benutzer
             startTime: formatDateTimeForInput(timeTracking.startTime),
             endTime: formatDateTimeForInput(timeTracking.endTime)
           })
@@ -93,7 +107,7 @@ const TimeTrackingForm = () => {
       }
     }
 
-    fetchOrders()
+    fetchData()
     fetchTimeTracking()
   }, [id, navigate])
 
@@ -129,7 +143,13 @@ const TimeTrackingForm = () => {
     label: `${order.orderNumber} - ${order.description.substring(0, 40)}${order.description.length > 40 ? '...' : ''}`
   }));
 
-  if (loading || ordersLoading) {
+  // Formatiere die Benutzer für das durchsuchbare Dropdown
+  const userOptions = users.map(user => ({
+    value: user._id,
+    label: `${user.name} (${user.email})`
+  }));
+
+  if (loading || ordersLoading || usersLoading) {
     return (
       <div className="text-center py-10">
         <div className="spinner"></div>
@@ -179,6 +199,27 @@ const TimeTrackingForm = () => {
                     threshold={5} // Zeige Suche ab 5 Einträgen
                   />
                 </div>
+              </div>
+              
+              <div className="sm:col-span-3">
+                <label htmlFor="assignedTo" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                  Zugewiesener Benutzer
+                </label>
+                <div className="mt-1">
+                  {/* Durchsuchbares Dropdown für Benutzer */}
+                  <SearchableSelect
+                    name="assignedTo"
+                    id="assignedTo"
+                    value={values.assignedTo}
+                    onChange={(e) => setFieldValue('assignedTo', e.target.value)}
+                    options={userOptions}
+                    placeholder="Keinem Benutzer zuweisen"
+                    threshold={5} // Zeige Suche ab 5 Einträgen
+                  />
+                </div>
+                <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                  Wählen Sie einen Benutzer aus, der diese Arbeitszeit durchgeführt hat.
+                </p>
               </div>
 
               <div className="sm:col-span-6">

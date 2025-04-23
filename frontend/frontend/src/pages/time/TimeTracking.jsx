@@ -1,19 +1,37 @@
-// src/pages/time/TimeTracking.jsx - Mit Dark Mode Support und Search/Filter Funktionalität
+// src/pages/time/TimeTracking.jsx - Mit Benutzerzuweisung
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { toast } from 'react-toastify'
-import { getTimeTrackings, deleteTimeTracking, updateTimeTrackingBillingStatus } from '../../services/timeTrackingService'
-import { PlusIcon, PencilIcon, TrashIcon, CheckIcon, XIcon } from '@heroicons/react/outline'
+import { 
+  getTimeTrackings, 
+  deleteTimeTracking, 
+  updateTimeTrackingBillingStatus,
+  assignTimeTracking 
+} from '../../services/timeTrackingService'
+import { getAssignableUsers } from '../../services/authService'
+import { 
+  PlusIcon, 
+  PencilIcon, 
+  TrashIcon, 
+  CheckIcon, 
+  XIcon,
+  UserIcon,
+  UserAddIcon 
+} from '@heroicons/react/outline'
 import { format } from 'date-fns'
 import { de } from 'date-fns/locale'
 import ResponsiveTable from '../../components/ui/ResponsiveTable'
 import SearchAndFilter from '../../components/ui/SearchAndFilter'
+import SearchableSelect from '../../components/ui/SearchableSelect'
 import { useTheme } from '../../context/ThemeContext'
 
 const TimeTracking = () => {
   const [timeEntries, setTimeEntries] = useState([])
   const [filteredEntries, setFilteredEntries] = useState([])
   const [loading, setLoading] = useState(true)
+  const [users, setUsers] = useState([]) // Benutzer für Zuweisungen
+  const [showAssignModal, setShowAssignModal] = useState(false)
+  const [selectedEntry, setSelectedEntry] = useState(null)
   const { isDarkMode } = useTheme()
   
   // Search and filter states
@@ -22,12 +40,14 @@ const TimeTracking = () => {
   const [filterValues, setFilterValues] = useState({
     billed: '',
     order: '',
+    assignedTo: '', // Neu: Filter nach zugewiesenem Benutzer
     minDuration: '',
     maxDuration: ''
   })
 
   useEffect(() => {
     fetchTimeEntries()
+    fetchUsers() // Benutzer für Zuweisungen laden
   }, [])
   
   // Effect for filtering and sorting time entries
@@ -42,7 +62,9 @@ const TimeTracking = () => {
       result = result.filter(entry => 
         (entry.description && entry.description.toLowerCase().includes(lowerSearch)) ||
         (entry.order && typeof entry.order === 'object' && entry.order.orderNumber && 
-         entry.order.orderNumber.toLowerCase().includes(lowerSearch))
+         entry.order.orderNumber.toLowerCase().includes(lowerSearch)) ||
+        (entry.assignedTo && typeof entry.assignedTo === 'object' && entry.assignedTo.name &&
+         entry.assignedTo.name.toLowerCase().includes(lowerSearch))
       )
     }
     
@@ -60,6 +82,17 @@ const TimeTracking = () => {
           return entry.order._id === filterValues.order
         }
         return entry.order === filterValues.order
+      })
+    }
+    
+    // Apply assignedTo filter if needed
+    if (filterValues.assignedTo) {
+      result = result.filter(entry => {
+        if (!entry.assignedTo) return false
+        if (typeof entry.assignedTo === 'object') {
+          return entry.assignedTo._id === filterValues.assignedTo
+        }
+        return entry.assignedTo === filterValues.assignedTo
       })
     }
     
@@ -96,6 +129,12 @@ const TimeTracking = () => {
           const bOrder = (b.order && typeof b.order === 'object') ? b.order.orderNumber || '' : ''
           comparison = aOrder.localeCompare(bOrder)
         }
+        // Special handling for assigned user
+        else if (field === 'assignedTo') {
+          const aName = (a.assignedTo && typeof a.assignedTo === 'object') ? a.assignedTo.name || '' : ''
+          const bName = (b.assignedTo && typeof b.assignedTo === 'object') ? b.assignedTo.name || '' : ''
+          comparison = aName.localeCompare(bName)
+        }
         // Default string or number comparison
         else {
           const aVal = a[field] ?? ''
@@ -126,6 +165,15 @@ const TimeTracking = () => {
     }
   }
 
+  const fetchUsers = async () => {
+    try {
+      const response = await getAssignableUsers()
+      setUsers(response.data.data)
+    } catch (error) {
+      toast.error('Fehler beim Laden der Benutzer')
+    }
+  }
+
   const handleDelete = async (id, isBilled) => {
     if (isBilled) {
       toast.warning('Abgerechnete Zeiten können nicht gelöscht werden')
@@ -153,6 +201,26 @@ const TimeTracking = () => {
     }
   }
   
+  // Handler für Benutzerzuweisung
+  const handleOpenAssignModal = (entry) => {
+    setSelectedEntry(entry)
+    setShowAssignModal(true)
+  }
+  
+  const handleAssignUser = async (userId) => {
+    if (!selectedEntry) return
+    
+    try {
+      await assignTimeTracking(selectedEntry._id, userId)
+      toast.success('Benutzer erfolgreich zugewiesen')
+      fetchTimeEntries()
+      setShowAssignModal(false)
+      setSelectedEntry(null)
+    } catch (error) {
+      toast.error('Fehler bei der Benutzerzuweisung')
+    }
+  }
+  
   const handleSearch = (value) => {
     setSearchTerm(value)
   }
@@ -177,7 +245,9 @@ const TimeTracking = () => {
     { value: 'description_asc', label: 'Beschreibung (A-Z)' },
     { value: 'description_desc', label: 'Beschreibung (Z-A)' },
     { value: 'order_asc', label: 'Auftrag (A-Z)' },
-    { value: 'order_desc', label: 'Auftrag (Z-A)' }
+    { value: 'order_desc', label: 'Auftrag (Z-A)' },
+    { value: 'assignedTo_asc', label: 'Zugewiesen (A-Z)' },
+    { value: 'assignedTo_desc', label: 'Zugewiesen (Z-A)' }
   ]
   
   // Create a unique list of orders from time entries for the filter
@@ -195,6 +265,28 @@ const TimeTracking = () => {
     })
     return Array.from(orderMap.values())
   }
+  
+  // Create a unique list of assigned users from time entries for the filter
+  const getAssignedUsers = () => {
+    const userMap = new Map()
+    timeEntries.forEach(entry => {
+      if (entry.assignedTo) {
+        if (typeof entry.assignedTo === 'object') {
+          userMap.set(entry.assignedTo._id, {
+            value: entry.assignedTo._id,
+            label: entry.assignedTo.name || 'Benutzer'
+          })
+        }
+      }
+    })
+    return Array.from(userMap.values())
+  }
+  
+  // Formatiere die Benutzer für das Zuweisungs-Dropdown
+  const userOptions = users.map(user => ({
+    value: user._id,
+    label: `${user.name} (${user.email})`
+  }))
   
   // Filter configuration
   const filterConfig = {
@@ -214,6 +306,13 @@ const TimeTracking = () => {
       onFilter: handleFilter,
       allLabel: 'Alle Aufträge',
       options: getOrders()
+    },
+    assignedTo: {
+      label: 'Zugewiesen an',
+      value: filterValues.assignedTo,
+      onFilter: handleFilter,
+      allLabel: 'Alle Benutzer',
+      options: getAssignedUsers()
     }
   }
 
@@ -283,6 +382,27 @@ const TimeTracking = () => {
       className: 'hidden md:table-cell'
     },
     {
+      header: 'Zugewiesen an',
+      accessor: 'assignedTo',
+      cell: (row) => (
+        <div className="text-sm text-gray-900 dark:text-white">
+          {row.assignedTo ? (
+            typeof row.assignedTo === 'object' ? (
+              <span className="flex items-center">
+                <UserIcon className="h-4 w-4 mr-1 text-gray-500 dark:text-gray-400" />
+                {row.assignedTo.name}
+              </span>
+            ) : (
+              'Benutzer laden...'
+            )
+          ) : (
+            <span className="text-gray-500 dark:text-gray-400 text-xs italic">Nicht zugewiesen</span>
+          )}
+        </div>
+      ),
+      className: 'hidden lg:table-cell'
+    },
+    {
       header: 'Zeit',
       accessor: 'duration',
       cell: (row) => (
@@ -324,6 +444,13 @@ const TimeTracking = () => {
       accessor: 'actions',
       cell: (row) => (
         <div className="text-right text-sm font-medium flex justify-end space-x-3">
+          <button
+            onClick={() => handleOpenAssignModal(row)}
+            className="text-indigo-600 dark:text-indigo-400 hover:text-indigo-900 dark:hover:text-indigo-300"
+            title="Benutzer zuweisen"
+          >
+            <UserAddIcon className="h-5 w-5" />
+          </button>
           <button
             onClick={() => handleToggleBilled(row._id, row.billed)}
             className={row.billed 
@@ -371,6 +498,12 @@ const TimeTracking = () => {
           {formatDateDisplay(entry.startTime)}
         </div>
         <div className="flex space-x-2">
+          <button
+            onClick={() => handleOpenAssignModal(entry)}
+            className="text-indigo-600 dark:text-indigo-400 hover:text-indigo-900 dark:hover:text-indigo-300"
+          >
+            <UserAddIcon className="h-5 w-5" />
+          </button>
           <button
             onClick={() => handleToggleBilled(entry._id, entry.billed)}
             className={entry.billed 
@@ -424,6 +557,15 @@ const TimeTracking = () => {
       )}
       
       <p className="text-sm text-gray-600 dark:text-gray-400">
+        <span className="font-medium">Zugewiesen an:</span>{' '}
+        {entry.assignedTo ? (
+          typeof entry.assignedTo === 'object' ? entry.assignedTo.name : 'Benutzer laden...'
+        ) : (
+          <span className="italic">Nicht zugewiesen</span>
+        )}
+      </p>
+      
+      <p className="text-sm text-gray-600 dark:text-gray-400">
         <span className="font-medium">Zeit:</span> {formatTimeDisplay(entry.startTime)} - {formatTimeDisplay(entry.endTime)}
       </p>
       
@@ -450,7 +592,7 @@ const TimeTracking = () => {
   const emptyState = (
     <div className="bg-white dark:bg-gray-800 shadow overflow-hidden sm:rounded-md p-6 text-center">
       <p className="text-gray-500 dark:text-gray-400">
-        {searchTerm || filterValues.billed || filterValues.order ? 
+        {searchTerm || filterValues.billed || filterValues.order || filterValues.assignedTo ? 
           'Keine Zeiteinträge gefunden, die Ihren Suchkriterien entsprechen.' : 
           'Keine Zeiteinträge gefunden.'}
       </p>
@@ -498,6 +640,65 @@ const TimeTracking = () => {
           />
         </div>
       </div>
+      
+      {/* Zuweisungs-Modal */}
+      {showAssignModal && selectedEntry && (
+        <div className="fixed z-10 inset-0 overflow-y-auto">
+          <div className="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+            <div 
+              className="fixed inset-0 transition-opacity" 
+              aria-hidden="true"
+              onClick={() => setShowAssignModal(false)}
+            >
+              <div className="absolute inset-0 bg-gray-500 dark:bg-gray-900 opacity-75"></div>
+            </div>
+
+            <span className="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
+            
+            <div className={`inline-block align-bottom ${isDarkMode ? 'bg-gray-800' : 'bg-white'} rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full`}>
+              <div className={`${isDarkMode ? 'bg-gray-800' : 'bg-white'} px-4 pt-5 pb-4 sm:p-6 sm:pb-4`}>
+                <div className="sm:flex sm:items-start">
+                  <div className="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left w-full">
+                    <h3 className={`text-lg leading-6 font-medium ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                      Benutzer zuweisen
+                    </h3>
+                    <div className="mt-2">
+                      <p className={`text-sm ${isDarkMode ? 'text-gray-300' : 'text-gray-500'} mb-4`}>
+                        Wählen Sie einen Benutzer aus, der für diesen Zeiteintrag zuständig sein soll.
+                      </p>
+                      
+                      <div className="mt-3">
+                        <label htmlFor="assignUser" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                          Benutzer
+                        </label>
+                        <SearchableSelect
+                          name="assignUser"
+                          id="assignUser"
+                          value={selectedEntry.assignedTo?._id || selectedEntry.assignedTo || ''}
+                          onChange={(e) => handleAssignUser(e.target.value)}
+                          options={userOptions}
+                          placeholder="Keinem Benutzer zuweisen"
+                          threshold={0} // Immer Suchfeld anzeigen
+                          darkMode={isDarkMode}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div className={`${isDarkMode ? 'bg-gray-900' : 'bg-gray-50'} px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse`}>
+                <button
+                  type="button"
+                  className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 dark:border-gray-600 shadow-sm px-4 py-2 text-base font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm"
+                  onClick={() => setShowAssignModal(false)}
+                >
+                  Schließen
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

@@ -76,6 +76,16 @@ export const bulkUpdateTimeTrackingBillingStatus = (ids, billed) => {
 };
 
 /**
+ * Weist einen Benutzer einem Zeiteintrag zu oder hebt die Zuweisung auf
+ * @param {string} id - ID des Zeiterfassungseintrags
+ * @param {string|null} userId - ID des Benutzers oder null für Aufhebung der Zuweisung
+ * @returns {Promise} Promise mit dem aktualisierten Zeiterfassungseintrag
+ */
+export const assignTimeTracking = (id, userId) => {
+  return axiosInstance.put(`/time-tracking/${id}/assign`, { userId });
+};
+
+/**
  * Ruft Statistiken zu Arbeitszeiten ab (z.B. für Dashboard)
  * @returns {Promise} Promise mit Arbeitszeitstatistiken
  */
