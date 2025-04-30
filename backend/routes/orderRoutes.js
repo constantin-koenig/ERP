@@ -1,4 +1,4 @@
-// backend/routes/orderRoutes.js (aktualisiert)
+// backend/routes/orderRoutes.js (korrigiert)
 const express = require('express');
 const { check } = require('express-validator');
 const {
@@ -13,6 +13,7 @@ const { protect } = require('../middleware/auth');
 
 const router = express.Router();
 
+// Route für alle Aufträge: GET und POST
 router.route('/')
   .get(protect, getOrders)
   .post(
@@ -25,10 +26,11 @@ router.route('/')
     createOrder
   );
 
+// Route für spezifischen Auftrag: GET, PUT und DELETE
 router.route('/:id')
   .get(protect, getOrder)
   .put(protect, updateOrder)
-  .delete(protect, deleteOrder);
+  .delete(protect, deleteOrder);  // Hier wurde die Callback-Funktion definiert
 
 // Neuer Endpunkt für die Zuweisung von Benutzern zu Aufträgen
 router.route('/:id/assign')

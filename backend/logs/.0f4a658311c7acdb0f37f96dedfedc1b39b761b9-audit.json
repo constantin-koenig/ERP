@@ -1,0 +1,15 @@
+{
+    "keep": {
+        "days": true,
+        "amount": 30
+    },
+    "auditLog": "C:\\Projekte\\ERP\\backend\\logs\\.0f4a658311c7acdb0f37f96dedfedc1b39b761b9-audit.json",
+    "files": [
+        {
+            "date": 1746021030055,
+            "name": "C:\\Projekte\\ERP\\backend\\logs\\error-2025-04-30.log",
+            "hash": "3fae6c0a1e0e8c0abeb1fa775dc502a40863eaf5edad11101a71e33c5632b2e2"
+        }
+    ],
+    "hashType": "sha256"
+}
