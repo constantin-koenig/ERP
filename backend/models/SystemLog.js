@@ -1,4 +1,4 @@
-// backend/models/SystemLog.js (Erweitert)
+// backend/models/SystemLog.js (Verbessert für Business-Events)
 const mongoose = require('mongoose');
 
 const SystemLogSchema = new mongoose.Schema({
@@ -23,17 +23,18 @@ const SystemLogSchema = new mongoose.Schema({
     type: String,
     default: 'System'
   },
+  // Verbesserte Kategorisierung
   module: {
     type: String,
-    default: 'general' // z.B. 'auth', 'customer', 'invoice', etc.
+    default: 'general' // z.B. 'users', 'customers', 'invoices', 'orders', etc.
   },
   action: {
     type: String,
-    default: 'general' // z.B. 'create', 'update', 'delete', etc.
+    default: 'general' // z.B. 'create', 'update', 'delete', 'status_change', etc.
   },
   entity: {
     type: String,
-    default: null // z.B. 'user', 'customer', 'invoice', etc.
+    default: null // z.B. 'user', 'customer', 'invoice', 'order', etc.
   },
   entityId: {
     type: mongoose.Schema.Types.ObjectId,
@@ -49,7 +50,17 @@ const SystemLogSchema = new mongoose.Schema({
   },
   source: {
     type: String,
-    default: 'api'
+    default: 'business_event', // Neuer Default-Wert für bessere Filterung!
+    enum: [
+      'business_event',      // Für Geschäftsereignisse
+      'user_action',         // Für Benutzeraktionen
+      'system_error',        // Für Systemfehler
+      'security_event',      // Für Sicherheitsereignisse
+      'data_operation',      // Für Datenoperationen
+      'admin_action',        // Für Admin-Aktionen
+      'system_startup',      // Für Systemstarts
+      'system_maintenance'   // Für Wartungsaufgaben
+    ]
   },
   ipAddress: {
     type: String
@@ -67,7 +78,7 @@ SystemLogSchema.index({ module: 1, action: 1 });
 SystemLogSchema.index({ source: 1 });
 
 // Statische Logger-Methoden
-SystemLogSchema.statics.logInfo = async function(message, userId = 'System', userName = 'System', details = {}, source = 'api', ipAddress = '', options = {}) {
+SystemLogSchema.statics.logInfo = async function(message, userId = 'System', userName = 'System', details = {}, source = 'business_event', ipAddress = '', options = {}) {
   const { module, action, entity, entityId, changes } = options;
   
   return this.create({
@@ -86,7 +97,7 @@ SystemLogSchema.statics.logInfo = async function(message, userId = 'System', use
   });
 };
 
-SystemLogSchema.statics.logWarning = async function(message, userId = 'System', userName = 'System', details = {}, source = 'api', ipAddress = '', options = {}) {
+SystemLogSchema.statics.logWarning = async function(message, userId = 'System', userName = 'System', details = {}, source = 'business_event', ipAddress = '', options = {}) {
   const { module, action, entity, entityId, changes } = options;
   
   return this.create({
@@ -105,7 +116,7 @@ SystemLogSchema.statics.logWarning = async function(message, userId = 'System', 
   });
 };
 
-SystemLogSchema.statics.logError = async function(message, userId = 'System', userName = 'System', details = {}, source = 'api', ipAddress = '', options = {}) {
+SystemLogSchema.statics.logError = async function(message, userId = 'System', userName = 'System', details = {}, source = 'system_error', ipAddress = '', options = {}) {
   const { module, action, entity, entityId, changes } = options;
   
   return this.create({
@@ -124,32 +135,14 @@ SystemLogSchema.statics.logError = async function(message, userId = 'System', us
   });
 };
 
-SystemLogSchema.statics.logDebug = async function(message, userId = 'System', userName = 'System', details = {}, source = 'api', ipAddress = '', options = {}) {
-  // Debug-Logs nur in Nicht-Produktionsumgebungen in die Datenbank schreiben
-  if (process.env.NODE_ENV === 'production') {
-    return null;
-  }
-  
-  const { module, action, entity, entityId, changes } = options;
-  
-  return this.create({
-    level: 'debug',
-    message,
-    userId,
-    userName,
-    module: module || 'general',
-    action: action || 'general',
-    entity: entity || null,
-    entityId: entityId || null,
-    changes: changes || {},
-    details,
-    source,
-    ipAddress
-  });
+// Debug-Logs NICHT in DB schreiben
+SystemLogSchema.statics.logDebug = async function(message, userId = 'System', userName = 'System', details = {}, source = 'business_event', ipAddress = '', options = {}) {
+  // Debug-Logs werden grundsätzlich NICHT in die Datenbank geschrieben
+  return null;
 };
 
 // Daten-Änderungen protokollieren
-SystemLogSchema.statics.logChanges = async function(entity, entityId, entityName, oldData, newData, userId, userName, message = null, source = 'data_change') {
+SystemLogSchema.statics.logChanges = async function(entity, entityId, entityName, oldData, newData, userId, userName, message = null, source = 'data_operation') {
   // Unterschiede zwischen alten und neuen Daten ermitteln
   const changes = {};
   let hasChanges = false;
@@ -195,49 +188,6 @@ SystemLogSchema.statics.logChanges = async function(entity, entityId, entityName
       objectName: entityName
     }
   });
-};
-
-// Helfer-Methode für Benutzeraktionen mit besserer Kategorisierung
-SystemLogSchema.statics.logUserAction = async function(action, entity, entityId, entityName, req, details = {}) {
-  try {
-    const user = req.user;
-    const userId = user ? user.id : 'System';
-    const userName = user ? user.name : 'System';
-    const module = entity + 's'; // Plural-Form, z.B. 'customers'
-    
-    // Menschenlesbare Aktionsbeschreibungen
-    const actionDescriptions = {
-      create: `${entityName} wurde erstellt`,
-      update: `${entityName} wurde aktualisiert`,
-      delete: `${entityName} wurde gelöscht`,
-      view: `${entityName} wurde angezeigt`,
-      assign: `${entityName} wurde zugewiesen`,
-      status_change: `Status von ${entityName} wurde geändert`,
-      login: 'Benutzer hat sich angemeldet',
-      logout: 'Benutzer hat sich abgemeldet',
-      password_reset: 'Passwort wurde zurückgesetzt',
-      password_change: 'Passwort wurde geändert'
-    };
-    
-    const message = actionDescriptions[action] || `${action} - ${entityName}`;
-    
-    return this.create({
-      level: 'info',
-      message,
-      userId,
-      userName,
-      module,
-      action,
-      entity,
-      entityId,
-      details,
-      source: 'user_action',
-      ipAddress: req.ip
-    });
-  } catch (error) {
-    console.error('Fehler beim Loggen der Benutzeraktion:', error);
-    // Bei Fehlern beim Loggen keine Exception werfen, um die Hauptfunktion nicht zu unterbrechen
-  }
 };
 
 // Methode für Frontend-Logging mit menschenlesbaren Nachrichten

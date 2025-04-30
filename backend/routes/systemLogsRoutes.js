@@ -1,4 +1,4 @@
-// backend/routes/systemLogsRoutes.js (Erweitert)
+// backend/routes/systemLogsRoutes.js (aktualisiert mit Bereinigungsfunktion)
 const express = require('express');
 const { check } = require('express-validator');
 const {
@@ -9,7 +9,7 @@ const {
   getLogFiles,
   getLogFileContent,
   deleteSystemLogs,
-  getLogDetails
+  getLogDetails,   // Neue Funktion für Bereinigung
 } = require('../controllers/systemLogsController');
 const { protect, authorize } = require('../middleware/auth');
 
@@ -43,6 +43,7 @@ router.get('/export', exportSystemLogs);
 // Logdateien und deren Inhalte
 router.get('/files', getLogFiles);
 router.get('/files/:filename', getLogFileContent);
+
 
 // Health-Check-Route (keine Authentifizierung erforderlich)
 router.get('/health', (req, res) => {

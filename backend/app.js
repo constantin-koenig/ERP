@@ -1,11 +1,11 @@
-// backend/app.js (mit Logging-Middleware)
+// backend/app.js (optimiert - keine DB-Logs für API-Anfragen)
 const express = require('express');
 const cors = require('cors');
 const morgan = require('morgan');
 const fileUpload = require('express-fileupload');
 const path = require('path');
 const errorHandler = require('./middleware/errorHandler');
-const { requestLogger } = require('./middleware/logger'); // Neue Logging-Middleware importieren
+const { requestLogger } = require('./middleware/logger'); // Logger-Middleware optimiert
 const userRoutes = require('./routes/userRoutes');
 const customerRoutes = require('./routes/customerRoutes');
 const orderRoutes = require('./routes/orderRoutes');
@@ -14,7 +14,7 @@ const invoiceRoutes = require('./routes/invoiceRoutes');
 const systemSettingsRoutes = require('./routes/systemSettingsRoutes');
 const systemLogsRoutes = require('./routes/systemLogsRoutes');
 const systemStatsRoutes = require('./routes/systemStatsRoutes');
-const SystemLog = require('./models/SystemLog'); // Für Systemstart-Logging
+const SystemLog = require('./models/SystemLog'); // Für Business-Events
 
 const app = express();
 
@@ -22,12 +22,12 @@ const app = express();
 app.use(express.json());
 app.use(cors());
 
-// Morgan-Logger für Entwicklungsumgebung
+// Morgan-Logger für Entwicklungsumgebung - technisches Logging in Konsole
 if (process.env.NODE_ENV === 'development') {
   app.use(morgan('dev'));
 }
 
-// Unsere eigene Logging-Middleware hinzufügen (nach express.json, da Body-Zugriff benötigt wird)
+// Optimierte Logging-Middleware hinzufügen - API-Anfragen werden nicht mehr in DB gespeichert
 app.use(requestLogger);
 
 // Datei-Upload-Middleware
@@ -71,15 +71,22 @@ app.use(async (req, res, next) => {
     if (settings.maintenanceMode) {
       // Maintenance-Mode-Zugriff loggen (außer für Resourcen wie CSS/JS/Bilder)
       if (!req.path.match(/\.(js|css|png|jpg|jpeg|gif|svg)$/)) {
+        // Als Business-Event loggen mit klarer Quelle (System-Event)
         SystemLog.logWarning(
           `Zugriff im Wartungsmodus verweigert: ${req.method} ${req.path}`,
-          'System',
+          'System', 
           'System',
           { 
             ip: req.ip,
             userAgent: req.headers['user-agent']
           },
-          'maintenance_mode'
+          'system_maintenance',
+          req.ip,
+          {
+            module: 'system',
+            action: 'maintenance_denied',
+            entity: 'access'
+          }
         ).catch(err => console.error('Logging Error:', err));
       }
       
@@ -92,13 +99,19 @@ app.use(async (req, res, next) => {
     next();
   } catch (error) {
     console.error('Fehler beim Prüfen des Wartungsmodus:', error);
-    // Fehler loggen
+    // Fehler loggen als Business-Event
     SystemLog.logError(
       `Fehler bei Wartungsmodus-Prüfung: ${error.message}`,
       'System',
       'System',
       { error: error.stack },
-      'system_error'
+      'system_error',
+      null,
+      {
+        module: 'system',
+        action: 'maintenance_check',
+        entity: 'system'
+      }
     ).catch(err => console.error('Logging Error:', err));
     
     next();
@@ -123,7 +136,7 @@ app.use('/', (req, res) => {
 // Fehlerbehandlung
 app.use(errorHandler);
 
-// System-Start protokollieren (beim Import dieser Datei)
+// System-Start protokollieren (beim Import dieser Datei) - als Business Event
 SystemLog.logInfo(
   'System gestartet',
   'System',
@@ -132,7 +145,13 @@ SystemLog.logInfo(
     nodeEnv: process.env.NODE_ENV,
     version: process.env.npm_package_version || 'unknown'
   },
-  'system_startup'
+  'system_startup',
+  null,
+  {
+    module: 'system',
+    action: 'startup',
+    entity: 'system'
+  }
 ).catch(err => console.error('Fehler beim Protokollieren des Systemstarts:', err));
 
 module.exports = app;

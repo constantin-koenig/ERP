@@ -1,4 +1,4 @@
-// backend/middleware/logger.js (Erweitert mit Datei-Logging)
+// backend/middleware/logger.js (Optimiert - API-Anfragen nicht in DB speichern)
 const SystemLog = require('../models/SystemLog');
 const fs = require('fs');
 const path = require('path');
@@ -88,7 +88,7 @@ function extractRequestData(req) {
   };
 }
 
-// Middleware zum Loggen von API-Anfragen
+// Middleware zum Loggen von API-Anfragen - jedoch NUR in die Datei, nicht in DB
 exports.requestLogger = (req, res, next) => {
   // Pfade, die immer vom Logging ausgeschlossen sind
   const excludedPaths = [
@@ -102,7 +102,7 @@ exports.requestLogger = (req, res, next) => {
   if (!shouldExclude) {
     const requestData = extractRequestData(req);
     
-    // Log-Level basierend auf HTTP-Methode
+    // Log-Level basierend auf HTTP-Methode - Logging nur in File, nicht in DB
     if (req.method === 'GET' || req.method === 'OPTIONS') {
       logger.debug(`${req.method} ${req.path}`, { 
         request: requestData,
@@ -116,35 +116,7 @@ exports.requestLogger = (req, res, next) => {
       });
     }
     
-    // Systemlog-Eintrag nur für Mutationsoperationen (nicht für GET)
-    const shouldCreateSystemLog = 
-      req.method !== 'GET' && 
-      !req.path.startsWith('/api/logs') &&  
-      !req.path.includes('/public');
-      
-    if (shouldCreateSystemLog) {
-      const user = req.user || { id: 'anonymous', name: 'Anonymer Benutzer' };
-      const logData = {
-        level: 'info',
-        message: `${req.method} ${req.path}`,
-        userId: user.id,
-        userName: user.name,
-        details: {
-          method: req.method,
-          path: req.path,
-          query: req.query,
-          body: sanitizeRequestBody(req.body),
-          userAgent: req.headers['user-agent'],
-        },
-        source: 'api_request',
-        ipAddress: req.ip
-      };
-
-      // Asynchron in Datenbank loggen, ohne auf Ergebnis zu warten
-      SystemLog.create(logData).catch(err => {
-        logger.error('Fehler beim Loggen der Anfrage in DB:', err);
-      });
-    }
+    // *** WICHTIG: KEIN SystemLog.create mehr hier - das war das Problem ***
   }
 
   // Response-Logging hinzufügen
@@ -167,7 +139,7 @@ exports.requestLogger = (req, res, next) => {
         type: 'response'
       };
 
-      // Log-Level basierend auf Status-Code
+      // Log-Level basierend auf Status-Code - nur in Datei, nicht DB
       if (res.statusCode >= 500) {
         logger.error(`${req.method} ${req.path} - Status: ${res.statusCode} (${responseTime}ms)`, logData);
       } else if (res.statusCode >= 400) {
@@ -178,8 +150,8 @@ exports.requestLogger = (req, res, next) => {
         logger.debug(`${req.method} ${req.path} - Status: ${res.statusCode} (${responseTime}ms)`, logData);
       }
       
-      // Fehler in der Datenbank loggen
-      if (res.statusCode >= 400) {
+      // Fehler in der Datenbank loggen - aber NUR für schwerwiegende Fehler
+      if (res.statusCode >= 500) {
         const shouldCreateSystemLogForError = 
           !req.path.startsWith('/api/logs') &&  
           !req.path.includes('/public');
@@ -187,15 +159,9 @@ exports.requestLogger = (req, res, next) => {
         if (shouldCreateSystemLogForError) {
           const user = req.user || { id: 'anonymous', name: 'Anonymer Benutzer' };
           
-          // Log-Level basierend auf Status-Code
-          let level = 'warning';
-          if (res.statusCode >= 500) {
-            level = 'error';
-          }
-          
           const logData = {
-            level,
-            message: `${req.method} ${req.path} - Status: ${res.statusCode}`,
+            level: 'error',
+            message: `Serverfehler: ${req.method} ${req.path} - Status: ${res.statusCode}`,
             userId: user.id,
             userName: user.name,
             details: {
@@ -205,13 +171,13 @@ exports.requestLogger = (req, res, next) => {
               responseTime: responseTime,
               userAgent: req.headers['user-agent'],
             },
-            source: 'api_response',
+            source: 'system_error',
             ipAddress: req.ip
           };
 
-          // Asynchron in Datenbank loggen
+          // Asynchron in Datenbank loggen - aber NUR für 500er Fehler
           SystemLog.create(logData).catch(err => {
-            logger.error('Fehler beim Loggen der Antwort in DB:', err);
+            logger.error('Fehler beim Loggen des Serverfehlers in DB:', err);
           });
         }
       }
@@ -222,7 +188,7 @@ exports.requestLogger = (req, res, next) => {
 };
 
 /**
- * Funktion zum Erstellen von Logs im System
+ * Funktion zum Erstellen von Business-Events Logs im System
  * @param {string} level - Log-Level ('info', 'warning', 'error')
  * @param {string} message - Log-Nachricht
  * @param {Object} req - Express Request-Objekt (optional)
@@ -251,7 +217,7 @@ exports.createLog = async (level, message, req = null, details = {}, source = 's
       ipAddress
     });
     
-    // In Datenbank loggen
+    // In Datenbank loggen - Business Events
     await SystemLog.create({
       level,
       message,

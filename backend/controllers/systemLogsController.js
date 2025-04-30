@@ -1,17 +1,25 @@
-// backend/controllers/systemLogsController.js (Vollständig)
+// backend/controllers/systemLogsController.js (Mit Hinzufügung einer Bereinigungsfunktion)
 const SystemLog = require('../models/SystemLog');
 const { validationResult } = require('express-validator');
 const { logger } = require('../middleware/logger');
 const fs = require('fs');
 const path = require('path');
 
-// @desc    Systemlogs abrufen
+// @desc    Systemlogs abrufen (nur Business-Events)
 // @route   GET /api/logs
 // @access  Private/Admin
 exports.getSystemLogs = async (req, res) => {
   try {
     // Erweiterte Filteroptionen
     const filter = {};
+    
+    // Default-Filter: Nur Business-Events anzeigen (keine API-Anfragen)
+    if (!req.query.source) {
+      // Verwende einen Filter, der API-Anfragen ausschließt
+      filter.source = { $in: ['business_event', 'user_action', 'data_operation', 'admin_action'] };
+    } else {
+      filter.source = req.query.source;
+    }
     
     // Basis-Filter: Level, Benutzer, Datumsbereich
     if (req.query.level) {
@@ -47,10 +55,6 @@ exports.getSystemLogs = async (req, res) => {
       filter.entity = req.query.entity;
     }
     
-    if (req.query.source) {
-      filter.source = req.query.source;
-    }
-    
     // Volltextsuche in der Nachricht
     if (req.query.search) {
       filter.message = { $regex: req.query.search, $options: 'i' };
@@ -74,7 +78,7 @@ exports.getSystemLogs = async (req, res) => {
     // Logs in ein für das Frontend optimiertes Format konvertieren
     const formattedLogs = logs.map(log => SystemLog.generateReadableLog(log));
 
-    // Log-Anfrage protokollieren
+    // Log-Anfrage protokollieren (nur im File)
     logger.debug(`Systemlogs abgerufen: ${total} Einträge gefunden`, {
       filter,
       page,
@@ -182,6 +186,9 @@ exports.createSystemLog = async (req, res) => {
     const entity = req.body.entity || null;
     const entityId = req.body.entityId || null;
     const changes = req.body.changes || {};
+    
+    // Quelle auf business_event setzen, falls nicht explizit angegeben
+    const source = req.body.source || 'business_event';
 
     // Log-Eintrag erstellen
     const log = await SystemLog.create({
@@ -195,16 +202,16 @@ exports.createSystemLog = async (req, res) => {
       entityId,
       changes,
       details: req.body.details || {},
-      source: req.body.source || 'api',
+      source,
       ipAddress: req.ip
     });
 
     // In Winston loggen
-    logger[req.body.level || 'info'](`${req.body.message} [${req.body.source || 'api'}]`, {
+    logger[req.body.level || 'info'](`Manuell erstellt: ${req.body.message} [${source}]`, {
       userId,
       userName,
       details: req.body.details || {},
-      source: req.body.source || 'api'
+      source
     });
 
     res.status(201).json({
@@ -231,9 +238,16 @@ exports.getSystemLogStats = async (req, res) => {
     const startDate = new Date();
     startDate.setDate(startDate.getDate() - days);
 
+    // Filter für Business-Events setzen (keine API-Anfragen)
+    const baseFilter = {
+      timestamp: { $gte: startDate },
+      // Nur Business-Events berücksichtigen
+      source: { $in: ['business_event', 'user_action', 'data_operation', 'admin_action'] }
+    };
+
     // Anzahl der Logs pro Level
     const logsByLevel = await SystemLog.aggregate([
-      { $match: { timestamp: { $gte: startDate } } },
+      { $match: baseFilter },
       { $group: { _id: '$level', count: { $sum: 1 } } }
     ]);
 
@@ -253,7 +267,7 @@ exports.getSystemLogStats = async (req, res) => {
 
     // Gruppierung nach Tagen für ein Liniendiagramm
     const logsByDay = await SystemLog.aggregate([
-      { $match: { timestamp: { $gte: startDate } } },
+      { $match: baseFilter },
       {
         $group: {
           _id: {
@@ -303,7 +317,7 @@ exports.getSystemLogStats = async (req, res) => {
     const [topModules, topActions, topErrors] = await Promise.all([
       // Top 5 Module
       SystemLog.aggregate([
-        { $match: { timestamp: { $gte: startDate } } },
+        { $match: baseFilter },
         { $group: { _id: '$module', count: { $sum: 1 } } },
         { $sort: { count: -1 } },
         { $limit: 5 }
@@ -311,7 +325,7 @@ exports.getSystemLogStats = async (req, res) => {
       
       // Top 5 Aktionen
       SystemLog.aggregate([
-        { $match: { timestamp: { $gte: startDate } } },
+        { $match: baseFilter },
         { $group: { _id: '$action', count: { $sum: 1 } } },
         { $sort: { count: -1 } },
         { $limit: 5 }
@@ -319,7 +333,7 @@ exports.getSystemLogStats = async (req, res) => {
       
       // Top 5 Fehlerquellen
       SystemLog.aggregate([
-        { $match: { level: 'error', timestamp: { $gte: startDate } } },
+        { $match: { ...baseFilter, level: 'error' } },
         { $group: { _id: '$message', count: { $sum: 1 } } },
         { $sort: { count: -1 } },
         { $limit: 5 }
@@ -364,6 +378,14 @@ exports.exportSystemLogs = async (req, res) => {
     // Filter-Optionen wie bei getSystemLogs
     const filter = {};
     
+    // Default-Filter: Nur Business-Events exportieren
+    if (!req.query.source) {
+      // Verwende einen Filter, der API-Anfragen ausschließt
+      filter.source = { $in: ['business_event', 'user_action', 'data_operation', 'admin_action'] };
+    } else {
+      filter.source = req.query.source;
+    }
+    
     // Basis-Filter anwenden
     if (req.query.level) {
       filter.level = req.query.level;
@@ -396,10 +418,6 @@ exports.exportSystemLogs = async (req, res) => {
     
     if (req.query.entity) {
       filter.entity = req.query.entity;
-    }
-    
-    if (req.query.source) {
-      filter.source = req.query.source;
     }
 
     // Bestimmen des Exportformats (CSV oder JSON)
@@ -449,7 +467,7 @@ exports.exportSystemLogs = async (req, res) => {
           log.action || '',
           log.entity || '',
           log.entityId || '',
-          log.source || 'api',
+          log.source || 'business_event',
           log.ipAddress || ''
         ].join(',') + '\n';
       });
@@ -677,3 +695,4 @@ exports.deleteSystemLogs = async (req, res) => {
     });
   }
 };
+
