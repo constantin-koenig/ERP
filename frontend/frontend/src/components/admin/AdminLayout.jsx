@@ -1,18 +1,19 @@
 // frontend/frontend/src/components/admin/AdminLayout.jsx
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { useNavigate, Outlet, Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import { useTheme } from '../../context/ThemeContext';
 import { toast } from 'react-toastify';
 import { 
   UserGroupIcon, 
   CogIcon, 
   ShieldCheckIcon,
-  DocumentTextIcon,
   ChartPieIcon
 } from '@heroicons/react/outline';
 
 const AdminLayout = () => {
   const { user } = useAuth();
+  const { isDarkMode } = useTheme();
   const navigate = useNavigate();
   const location = useLocation();
   
@@ -25,7 +26,7 @@ const AdminLayout = () => {
     }
   }, [user, navigate]);
   
-  // Admin-Menüpunkte
+  // Admin-Menüpunkte (Dokumentvorlagen entfernt)
   const adminMenuItems = [
     { 
       path: '/admin/users', 
@@ -44,12 +45,6 @@ const AdminLayout = () => {
       name: 'Systemlogs', 
       icon: ShieldCheckIcon,
       description: 'Systemereignisse und Protokolle einsehen'
-    },
-    { 
-      path: '/admin/templates', 
-      name: 'Dokumentvorlagen', 
-      icon: DocumentTextIcon,
-      description: 'Vorlagen für Rechnungen, Angebote und E-Mails'
     },
     { 
       path: '/admin/statistics', 
@@ -71,15 +66,15 @@ const AdminLayout = () => {
   }
   
   return (
-    <div className="flex flex-col min-h-screen bg-gray-50">
+    <div className={`flex flex-col min-h-screen ${isDarkMode ? 'bg-gray-900' : 'bg-gray-50'}`}>
       {/* Header mit Tabs */}
-      <div className="bg-white shadow">
+      <div className={`${isDarkMode ? 'bg-gray-800' : 'bg-white'} shadow`}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="py-6">
-            <h1 className="text-2xl font-bold text-gray-900 mb-6">Administration</h1>
+            <h1 className={`text-2xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'} mb-6`}>Administration</h1>
             
             {/* Tabs Navigation */}
-            <div className="border-b border-gray-200">
+            <div className={`border-b ${isDarkMode ? 'border-gray-700' : 'border-gray-200'}`}>
               <nav className="-mb-px flex space-x-8">
                 {adminMenuItems.map((item) => (
                   <Link
@@ -88,8 +83,13 @@ const AdminLayout = () => {
                     className={`
                       whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm
                       ${currentPath === item.path || currentPath.startsWith(`${item.path}/`) 
-                        ? 'border-blue-500 text-blue-600' 
-                        : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}
+                        ? isDarkMode 
+                          ? 'border-blue-500 text-blue-400' 
+                          : 'border-blue-500 text-blue-600'
+                        : isDarkMode
+                          ? 'border-transparent text-gray-400 hover:text-gray-300 hover:border-gray-600'
+                          : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                      }
                     `}
                   >
                     <div className="flex items-center">
@@ -110,8 +110,8 @@ const AdminLayout = () => {
           {/* Aktuelle Tab-Beschreibung */}
           {activeItem && (
             <div className="mb-6">
-              <h2 className="text-lg font-medium text-gray-900">{activeItem.name}</h2>
-              <p className="mt-1 text-sm text-gray-500">{activeItem.description}</p>
+              <h2 className={`text-lg font-medium ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{activeItem.name}</h2>
+              <p className={`mt-1 text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>{activeItem.description}</p>
             </div>
           )}
           

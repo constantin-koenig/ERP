@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react';
 import { toast } from 'react-toastify';
 import { getSystemSettings, updateSystemSettings } from '../../services/systemSettingsService';
+import { useTheme } from '../../context/ThemeContext';
 import {
   CogIcon,
   CurrencyEuroIcon,
@@ -16,6 +17,7 @@ const SystemSettings = () => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [activeTab, setActiveTab] = useState('general');
+  const { isDarkMode } = useTheme();
   const [settingsData, setSettingsData] = useState({
     // Allgemeine Einstellungen
     companyName: '',
@@ -125,24 +127,28 @@ const SystemSettings = () => {
     return (
       <div className="flex justify-center items-center h-64">
         <div className="spinner"></div>
-        <p className="ml-2 text-gray-600">Einstellungen werden geladen...</p>
+        <p className={`ml-2 ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>Einstellungen werden geladen...</p>
       </div>
     );
   }
 
   return (
     <div className="container mx-auto px-4 py-8">
-      <h1 className="text-2xl font-bold text-gray-900 mb-6">Systemeinstellungen</h1>
+      <h1 className={`text-2xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'} mb-6`}>Systemeinstellungen</h1>
 
-      <div className="bg-white shadow overflow-hidden sm:rounded-lg">
-        <div className="border-b border-gray-200">
+      <div className={`${isDarkMode ? 'bg-gray-800' : 'bg-white'} shadow overflow-hidden sm:rounded-lg`}>
+        <div className={`border-b ${isDarkMode ? 'border-gray-700' : 'border-gray-200'}`}>
           <nav className="flex -mb-px">
             <button
               onClick={() => setActiveTab('general')}
               className={`py-4 px-6 text-center border-b-2 font-medium text-sm ${
                 activeTab === 'general'
-                  ? 'border-blue-500 text-blue-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  ? isDarkMode 
+                    ? 'border-blue-500 text-blue-400' 
+                    : 'border-blue-500 text-blue-600'
+                  : isDarkMode
+                    ? 'border-transparent text-gray-400 hover:text-gray-300 hover:border-gray-600' 
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
               }`}
             >
               <CogIcon className="h-5 w-5 inline mr-2" />
@@ -152,8 +158,12 @@ const SystemSettings = () => {
               onClick={() => setActiveTab('finance')}
               className={`py-4 px-6 text-center border-b-2 font-medium text-sm ${
                 activeTab === 'finance'
-                  ? 'border-blue-500 text-blue-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  ? isDarkMode 
+                    ? 'border-blue-500 text-blue-400' 
+                    : 'border-blue-500 text-blue-600'
+                  : isDarkMode
+                    ? 'border-transparent text-gray-400 hover:text-gray-300 hover:border-gray-600' 
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
               }`}
             >
               <CurrencyEuroIcon className="h-5 w-5 inline mr-2" />
@@ -163,8 +173,12 @@ const SystemSettings = () => {
               onClick={() => setActiveTab('legal')}
               className={`py-4 px-6 text-center border-b-2 font-medium text-sm ${
                 activeTab === 'legal'
-                  ? 'border-blue-500 text-blue-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  ? isDarkMode 
+                    ? 'border-blue-500 text-blue-400' 
+                    : 'border-blue-500 text-blue-600'
+                  : isDarkMode
+                    ? 'border-transparent text-gray-400 hover:text-gray-300 hover:border-gray-600' 
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
               }`}
             >
               <DocumentTextIcon className="h-5 w-5 inline mr-2" />
@@ -174,8 +188,12 @@ const SystemSettings = () => {
               onClick={() => setActiveTab('security')}
               className={`py-4 px-6 text-center border-b-2 font-medium text-sm ${
                 activeTab === 'security'
-                  ? 'border-blue-500 text-blue-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  ? isDarkMode 
+                    ? 'border-blue-500 text-blue-400' 
+                    : 'border-blue-500 text-blue-600'
+                  : isDarkMode
+                    ? 'border-transparent text-gray-400 hover:text-gray-300 hover:border-gray-600' 
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
               }`}
             >
               <ShieldCheckIcon className="h-5 w-5 inline mr-2" />
@@ -189,10 +207,10 @@ const SystemSettings = () => {
             {/* Allgemeine Einstellungen */}
             {activeTab === 'general' && (
               <div className="space-y-6">
-                <h2 className="text-lg font-medium text-gray-900">Allgemeine Einstellungen</h2>
+                <h2 className={`text-lg font-medium ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Allgemeine Einstellungen</h2>
 
                 <div>
-                  <label htmlFor="companyName" className="block text-sm font-medium text-gray-700">
+                  <label htmlFor="companyName" className={`block text-sm font-medium ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
                     Firmenname
                   </label>
                   <div className="mt-1">
@@ -200,7 +218,8 @@ const SystemSettings = () => {
                       type="text"
                       name="companyName"
                       id="companyName"
-                      className="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 rounded-md"
+                      className={`shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm 
+                        ${isDarkMode ? 'bg-gray-700 border-gray-600 text-white' : 'border-gray-300 text-gray-900'} rounded-md`}
                       value={settingsData.companyName}
                       onChange={handleChange}
                     />
@@ -208,11 +227,11 @@ const SystemSettings = () => {
                 </div>
 
                 <div>
-                  <label htmlFor="logoUpload" className="block text-sm font-medium text-gray-700">
+                  <label htmlFor="logoUpload" className={`block text-sm font-medium ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
                     Firmenlogo
                   </label>
                   <div className="mt-1 flex items-center">
-                    <div className="h-16 w-36 overflow-hidden bg-gray-100 flex items-center justify-center">
+                    <div className={`h-16 w-36 overflow-hidden ${isDarkMode ? 'bg-gray-700' : 'bg-gray-100'} flex items-center justify-center`}>
                       {settingsData.companyLogo ? (
                         <img
                           src={settingsData.companyLogo}
@@ -220,11 +239,15 @@ const SystemSettings = () => {
                           className="h-full"
                         />
                       ) : (
-                        <span className="text-gray-400">Kein Logo</span>
+                        <span className={`${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Kein Logo</span>
                       )}
                     </div>
                     <label htmlFor="logoUpload" className="ml-5 cursor-pointer">
-                      <span className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                      <span className={`inline-flex items-center px-3 py-2 border ${
+                        isDarkMode 
+                          ? 'border-gray-600 bg-gray-700 text-gray-200 hover:bg-gray-600' 
+                          : 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50'
+                        } shadow-sm text-sm leading-4 font-medium rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500`}>
                         <UploadIcon className="-ml-0.5 mr-2 h-4 w-4" />
                         Logo hochladen
                       </span>
@@ -238,7 +261,7 @@ const SystemSettings = () => {
                       />
                     </label>
                   </div>
-                  <p className="mt-2 text-xs text-gray-500">
+                  <p className={`mt-2 text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
                     Empfohlene Größe: 240x80 Pixel. Max. 2MB (JPG, PNG, SVG)
                   </p>
                 </div>
@@ -250,16 +273,18 @@ const SystemSettings = () => {
                         id="maintenanceMode"
                         name="maintenanceMode"
                         type="checkbox"
-                        className="focus:ring-blue-500 h-4 w-4 text-blue-600 border-gray-300 rounded"
+                        className={`focus:ring-blue-500 h-4 w-4 text-blue-600 ${
+                          isDarkMode ? 'bg-gray-700 border-gray-600' : 'border-gray-300'
+                        } rounded`}
                         checked={settingsData.maintenanceMode}
                         onChange={handleChange}
                       />
                     </div>
                     <div className="ml-3 text-sm">
-                      <label htmlFor="maintenanceMode" className="font-medium text-gray-700">
+                      <label htmlFor="maintenanceMode" className={`font-medium ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
                         Wartungsmodus aktivieren
                       </label>
-                      <p className="text-gray-500">
+                      <p className={`${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
                         Im Wartungsmodus können sich nur Administratoren anmelden.
                       </p>
                     </div>
@@ -268,7 +293,7 @@ const SystemSettings = () => {
 
                 {settingsData.maintenanceMode && (
                   <div>
-                    <label htmlFor="maintenanceMessage" className="block text-sm font-medium text-gray-700">
+                    <label htmlFor="maintenanceMessage" className={`block text-sm font-medium ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
                       Wartungsmeldung
                     </label>
                     <div className="mt-1">
@@ -276,7 +301,8 @@ const SystemSettings = () => {
                         id="maintenanceMessage"
                         name="maintenanceMessage"
                         rows={3}
-                        className="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 rounded-md"
+                        className={`shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm 
+                          ${isDarkMode ? 'bg-gray-700 border-gray-600 text-white' : 'border-gray-300 text-gray-900'} rounded-md`}
                         value={settingsData.maintenanceMessage}
                         onChange={handleChange}
                       ></textarea>
@@ -289,18 +315,19 @@ const SystemSettings = () => {
             {/* Finanzeinstellungen */}
             {activeTab === 'finance' && (
               <div className="space-y-6">
-                <h2 className="text-lg font-medium text-gray-900">Finanzeinstellungen</h2>
+                <h2 className={`text-lg font-medium ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Finanzeinstellungen</h2>
 
                 <div className="grid grid-cols-1 gap-y-6 gap-x-4 sm:grid-cols-6">
                   <div className="sm:col-span-3">
-                    <label htmlFor="currency" className="block text-sm font-medium text-gray-700">
+                    <label htmlFor="currency" className={`block text-sm font-medium ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
                       Währung
                     </label>
                     <div className="mt-1">
                       <select
                         id="currency"
                         name="currency"
-                        className="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 rounded-md"
+                        className={`shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm 
+                          ${isDarkMode ? 'bg-gray-700 border-gray-600 text-white' : 'border-gray-300 text-gray-900'} rounded-md`}
                         value={settingsData.currency}
                         onChange={handleChange}
                       >
@@ -313,7 +340,7 @@ const SystemSettings = () => {
                   </div>
 
                   <div className="sm:col-span-3">
-                    <label htmlFor="currencySymbol" className="block text-sm font-medium text-gray-700">
+                    <label htmlFor="currencySymbol" className={`block text-sm font-medium ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
                       Währungssymbol
                     </label>
                     <div className="mt-1">
@@ -321,7 +348,8 @@ const SystemSettings = () => {
                         type="text"
                         name="currencySymbol"
                         id="currencySymbol"
-                        className="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 rounded-md"
+                        className={`shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm 
+                          ${isDarkMode ? 'bg-gray-700 border-gray-600 text-white' : 'border-gray-300 text-gray-900'} rounded-md`}
                         value={settingsData.currencySymbol}
                         onChange={handleChange}
                       />
@@ -329,7 +357,7 @@ const SystemSettings = () => {
                   </div>
 
                   <div className="sm:col-span-3">
-                    <label htmlFor="taxRate" className="block text-sm font-medium text-gray-700">
+                    <label htmlFor="taxRate" className={`block text-sm font-medium ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
                       Standard-Mehrwertsteuersatz (%)
                     </label>
                     <div className="mt-1">
@@ -340,7 +368,8 @@ const SystemSettings = () => {
                         min="0"
                         max="100"
                         step="0.1"
-                        className="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 rounded-md"
+                        className={`shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm 
+                          ${isDarkMode ? 'bg-gray-700 border-gray-600 text-white' : 'border-gray-300 text-gray-900'} rounded-md`}
                         value={settingsData.taxRate}
                         onChange={handleChange}
                       />
@@ -348,7 +377,7 @@ const SystemSettings = () => {
                   </div>
 
                   <div className="sm:col-span-3">
-                    <label htmlFor="paymentTerms" className="block text-sm font-medium text-gray-700">
+                    <label htmlFor="paymentTerms" className={`block text-sm font-medium ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
                       Standard-Zahlungsfrist (Tage)
                     </label>
                     <div className="mt-1">
@@ -357,7 +386,8 @@ const SystemSettings = () => {
                         name="paymentTerms"
                         id="paymentTerms"
                         min="0"
-                        className="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 rounded-md"
+                        className={`shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm 
+                          ${isDarkMode ? 'bg-gray-700 border-gray-600 text-white' : 'border-gray-300 text-gray-900'} rounded-md`}
                         value={settingsData.paymentTerms}
                         onChange={handleChange}
                       />
@@ -366,7 +396,7 @@ const SystemSettings = () => {
                 </div>
 
                 <div>
-                  <label htmlFor="invoiceFooter" className="block text-sm font-medium text-gray-700">
+                  <label htmlFor="invoiceFooter" className={`block text-sm font-medium ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
                     Standard-Rechnungsfußzeile
                   </label>
                   <div className="mt-1">
@@ -374,7 +404,8 @@ const SystemSettings = () => {
                       id="invoiceFooter"
                       name="invoiceFooter"
                       rows={3}
-                      className="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 rounded-md"
+                      className={`shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm 
+                        ${isDarkMode ? 'bg-gray-700 border-gray-600 text-white' : 'border-gray-300 text-gray-900'} rounded-md`}
                       value={settingsData.invoiceFooter}
                       onChange={handleChange}
                     ></textarea>
@@ -386,28 +417,30 @@ const SystemSettings = () => {
             {/* Rechtliche Einstellungen */}
             {activeTab === 'legal' && (
               <div className="space-y-6">
-                <h2 className="text-lg font-medium text-gray-900">Rechtliche Einstellungen</h2>
+                <h2 className={`text-lg font-medium ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Rechtliche Einstellungen</h2>
 
                 <div>
-                  <label htmlFor="termsAndConditions" className="block text-sm font-medium text-gray-700">
+                  <label htmlFor="termsAndConditions" className={`block text-sm font-medium ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
                     Allgemeine Geschäftsbedingungen (AGB)
                   </label>
                   <div className="mt-1">
                     <TermsEditor
                       value={settingsData.termsAndConditions}
                       onChange={(value) => handleTextAreaChange('termsAndConditions', value)}
+                      isDarkMode={isDarkMode}
                     />
                   </div>
                 </div>
 
                 <div>
-                  <label htmlFor="privacyPolicy" className="block text-sm font-medium text-gray-700">
+                  <label htmlFor="privacyPolicy" className={`block text-sm font-medium ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
                     Datenschutzerklärung
                   </label>
                   <div className="mt-1">
                     <TermsEditor
                       value={settingsData.privacyPolicy}
                       onChange={(value) => handleTextAreaChange('privacyPolicy', value)}
+                      isDarkMode={isDarkMode}
                     />
                   </div>
                 </div>
@@ -417,7 +450,7 @@ const SystemSettings = () => {
             {/* Sicherheitseinstellungen */}
             {activeTab === 'security' && (
               <div className="space-y-6">
-                <h2 className="text-lg font-medium text-gray-900">Sicherheitseinstellungen</h2>
+                <h2 className={`text-lg font-medium ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Sicherheitseinstellungen</h2>
 
                 <div>
                   <div className="relative flex items-start">
@@ -426,16 +459,18 @@ const SystemSettings = () => {
                         id="allowRegistration"
                         name="allowRegistration"
                         type="checkbox"
-                        className="focus:ring-blue-500 h-4 w-4 text-blue-600 border-gray-300 rounded"
+                        className={`focus:ring-blue-500 h-4 w-4 text-blue-600 ${
+                          isDarkMode ? 'bg-gray-700 border-gray-600' : 'border-gray-300'
+                        } rounded`}
                         checked={settingsData.allowRegistration}
                         onChange={handleChange}
                       />
                     </div>
                     <div className="ml-3 text-sm">
-                      <label htmlFor="allowRegistration" className="font-medium text-gray-700">
+                      <label htmlFor="allowRegistration" className={`font-medium ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
                         Öffentliche Registrierung erlauben
                       </label>
-                      <p className="text-gray-500">
+                      <p className={`${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
                         Wenn aktiviert, können sich neue Benutzer ohne Einladung registrieren.
                       </p>
                     </div>
@@ -449,27 +484,29 @@ const SystemSettings = () => {
                         id="allowPasswordReset"
                         name="allowPasswordReset"
                         type="checkbox"
-                        className="focus:ring-blue-500 h-4 w-4 text-blue-600 border-gray-300 rounded"
+                        className={`focus:ring-blue-500 h-4 w-4 text-blue-600 ${
+                          isDarkMode ? 'bg-gray-700 border-gray-600' : 'border-gray-300'
+                        } rounded`}
                         checked={settingsData.allowPasswordReset}
                         onChange={handleChange}
                       />
                     </div>
                     <div className="ml-3 text-sm">
-                      <label htmlFor="allowPasswordReset" className="font-medium text-gray-700">
+                      <label htmlFor="allowPasswordReset" className={`font-medium ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
                         Passwort-Zurücksetzen erlauben
                       </label>
-                      <p className="text-gray-500">
+                      <p className={`${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
                         Wenn aktiviert, können Benutzer ihr Passwort über die "Passwort vergessen"-Funktion zurücksetzen.
                       </p>
                     </div>
                   </div>
                 </div>
 
-                <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4">
+                <div className={`${isDarkMode ? 'bg-yellow-900 border-yellow-800' : 'bg-yellow-50 border-yellow-400'} border-l-4 p-4`}>
                   <div className="flex">
                     <div className="ml-3">
-                      <h3 className="text-sm font-medium text-yellow-800">E-Mail-Konfiguration</h3>
-                      <div className="mt-2 text-sm text-yellow-700">
+                      <h3 className={`text-sm font-medium ${isDarkMode ? 'text-yellow-300' : 'text-yellow-800'}`}>E-Mail-Konfiguration</h3>
+                      <div className={`mt-2 text-sm ${isDarkMode ? 'text-yellow-200' : 'text-yellow-700'}`}>
                         <p>
                           Die E-Mail-Konfiguration für Benutzereinladungen und Passwort-Zurücksetzen wird in den
                           Servereinstellungen vorgenommen.
@@ -482,7 +519,7 @@ const SystemSettings = () => {
             )}
           </div>
 
-          <div className="px-4 py-3 bg-gray-50 text-right sm:px-6">
+          <div className={`px-4 py-3 ${isDarkMode ? 'bg-gray-700' : 'bg-gray-50'} text-right sm:px-6`}>
             <button
               type="submit"
               disabled={saving}

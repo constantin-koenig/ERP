@@ -1,8 +1,10 @@
 // frontend/frontend/src/pages/admin/UserInvitationModal.jsx
 import { useState } from 'react'
 import { XIcon } from '@heroicons/react/outline'
+import { useTheme } from '../../context/ThemeContext'
 
 const UserInvitationModal = ({ isOpen, onClose, onInvite }) => {
+  const { isDarkMode } = useTheme()
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -69,12 +71,12 @@ const UserInvitationModal = ({ isOpen, onClose, onInvite }) => {
         </div>
 
         {/* Modal-Fenster */}
-        <div className="inline-block align-bottom bg-white rounded-lg px-4 pt-5 pb-4 text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full sm:p-6">
+        <div className={`inline-block align-bottom ${isDarkMode ? 'bg-gray-800' : 'bg-white'} rounded-lg px-4 pt-5 pb-4 text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full sm:p-6`}>
           {/* Schließen-Button */}
           <div className="absolute top-0 right-0 pt-4 pr-4">
             <button
               type="button"
-              className="bg-white rounded-md text-gray-400 hover:text-gray-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+              className={`${isDarkMode ? 'bg-gray-800' : 'bg-white'} rounded-md ${isDarkMode ? 'text-gray-400 hover:text-gray-300' : 'text-gray-400 hover:text-gray-500'} focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500`}
               onClick={onClose}
             >
               <span className="sr-only">Schließen</span>
@@ -84,12 +86,12 @@ const UserInvitationModal = ({ isOpen, onClose, onInvite }) => {
 
           <div className="sm:flex sm:items-start">
             <div className="mt-3 text-center sm:mt-0 sm:text-left w-full">
-              <h3 className="text-lg leading-6 font-medium text-gray-900">Benutzer einladen</h3>
+              <h3 className={`text-lg leading-6 font-medium ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Benutzer einladen</h3>
               <div className="mt-4">
                 <form onSubmit={handleSubmit}>
                   <div className="space-y-4">
                     <div>
-                      <label htmlFor="name" className="block text-sm font-medium text-gray-700">
+                      <label htmlFor="name" className={`block text-sm font-medium ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
                         Name *
                       </label>
                       <div className="mt-1">
@@ -97,18 +99,22 @@ const UserInvitationModal = ({ isOpen, onClose, onInvite }) => {
                           type="text"
                           name="name"
                           id="name"
-                          className={`shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 rounded-md ${
-                            errors.name ? 'border-red-300' : ''
+                          className={`shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm ${
+                            isDarkMode 
+                              ? 'bg-gray-700 border-gray-600 text-white' 
+                              : 'border-gray-300 text-gray-900'
+                          } rounded-md ${
+                            errors.name ? isDarkMode ? 'border-red-500' : 'border-red-300' : ''
                           }`}
                           value={formData.name}
                           onChange={handleChange}
                         />
-                        {errors.name && <p className="mt-1 text-sm text-red-600">{errors.name}</p>}
+                        {errors.name && <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.name}</p>}
                       </div>
                     </div>
 
                     <div>
-                      <label htmlFor="email" className="block text-sm font-medium text-gray-700">
+                      <label htmlFor="email" className={`block text-sm font-medium ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
                         E-Mail-Adresse *
                       </label>
                       <div className="mt-1">
@@ -116,25 +122,33 @@ const UserInvitationModal = ({ isOpen, onClose, onInvite }) => {
                           type="email"
                           name="email"
                           id="email"
-                          className={`shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 rounded-md ${
-                            errors.email ? 'border-red-300' : ''
+                          className={`shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm ${
+                            isDarkMode 
+                              ? 'bg-gray-700 border-gray-600 text-white' 
+                              : 'border-gray-300 text-gray-900'
+                          } rounded-md ${
+                            errors.email ? isDarkMode ? 'border-red-500' : 'border-red-300' : ''
                           }`}
                           value={formData.email}
                           onChange={handleChange}
                         />
-                        {errors.email && <p className="mt-1 text-sm text-red-600">{errors.email}</p>}
+                        {errors.email && <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.email}</p>}
                       </div>
                     </div>
 
                     <div>
-                      <label htmlFor="role" className="block text-sm font-medium text-gray-700">
+                      <label htmlFor="role" className={`block text-sm font-medium ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
                         Rolle
                       </label>
                       <div className="mt-1">
                         <select
                           id="role"
                           name="role"
-                          className="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 rounded-md"
+                          className={`shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm ${
+                            isDarkMode 
+                              ? 'bg-gray-700 border-gray-600 text-white' 
+                              : 'border-gray-300 text-gray-900'
+                          } rounded-md`}
                           value={formData.role}
                           onChange={handleChange}
                         >
@@ -155,7 +169,11 @@ const UserInvitationModal = ({ isOpen, onClose, onInvite }) => {
                     </button>
                     <button
                       type="button"
-                      className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 sm:mt-0 sm:w-auto sm:text-sm"
+                      className={`mt-3 w-full inline-flex justify-center rounded-md border ${
+                        isDarkMode 
+                          ? 'border-gray-600 bg-gray-700 text-gray-300 hover:bg-gray-600' 
+                          : 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50'
+                      } shadow-sm px-4 py-2 text-base font-medium focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 sm:mt-0 sm:w-auto sm:text-sm`}
                       onClick={onClose}
                     >
                       Abbrechen

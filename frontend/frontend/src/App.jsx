@@ -37,7 +37,6 @@ import AdminLayout from './components/admin/AdminLayout'
 import UserManagement from './pages/admin/UserManagement'
 import SystemSettings from './pages/admin/SystemSettings'
 import SystemLogs from './pages/admin/SystemLogs'
-import TemplateEditor from './pages/admin/TemplateEditor'
 import SystemStats from './pages/admin/SystemStats'
 
 // User Settings Pages
@@ -100,7 +99,6 @@ function App() {
               <Route path="users" element={<UserManagement />} />
               <Route path="settings" element={<SystemSettings />} />
               <Route path="logs" element={<SystemLogs />} />
-              <Route path="templates" element={<TemplateEditor />} />
               <Route path="statistics" element={<SystemStats />} />
             </Route>
           </Route>
