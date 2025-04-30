@@ -9,111 +9,124 @@ const path = require('path');
 // @route   GET /api/logs
 // @access  Private/Admin
 exports.getSystemLogs = async (req, res) => {
-  try {
-    // Erweiterte Filteroptionen
-    const filter = {};
-    
-    // Default-Filter: Nur Business-Events anzeigen (keine API-Anfragen)
-    if (!req.query.source) {
-      // Verwende einen Filter, der API-Anfragen ausschließt
-      filter.source = { $in: ['business_event', 'user_action', 'data_operation', 'admin_action'] };
-    } else {
-      filter.source = req.query.source;
-    }
-    
-    // Basis-Filter: Level, Benutzer, Datumsbereich
-    if (req.query.level) {
-      filter.level = req.query.level;
-    }
-    
-    if (req.query.user) {
-      filter.userId = req.query.user;
-    }
-    
-    // Datumsbereiche
-    if (req.query.startDate && req.query.endDate) {
-      filter.timestamp = {
-        $gte: new Date(req.query.startDate),
-        $lte: new Date(req.query.endDate)
-      };
-    } else if (req.query.startDate) {
-      filter.timestamp = { $gte: new Date(req.query.startDate) };
-    } else if (req.query.endDate) {
-      filter.timestamp = { $lte: new Date(req.query.endDate) };
-    }
-    
-    // Erweiterte Filter
-    if (req.query.module) {
-      filter.module = req.query.module;
-    }
-    
-    if (req.query.action) {
-      filter.action = req.query.action;
-    }
-    
-    if (req.query.entity) {
-      filter.entity = req.query.entity;
-    }
-    
-    // Volltextsuche in der Nachricht
-    if (req.query.search) {
-      filter.message = { $regex: req.query.search, $options: 'i' };
-    }
-
-    // Paginierung
-    const page = parseInt(req.query.page, 10) || 1;
-    const limit = parseInt(req.query.limit, 10) || 100;
-    const skip = (page - 1) * limit;
-
-    // Gesamtanzahl für Paginierung
-    const total = await SystemLog.countDocuments(filter);
-    
-    // Logs mit Sortierung nach Zeitstempel absteigend (neueste zuerst)
-    const logs = await SystemLog.find(filter)
-      .sort({ timestamp: -1 })
-      .skip(skip)
-      .limit(limit)
-      .lean();
-    
-    // Logs in ein für das Frontend optimiertes Format konvertieren
-    const formattedLogs = logs.map(log => SystemLog.generateReadableLog(log));
-
-    // Log-Anfrage protokollieren (nur im File)
-    logger.debug(`Systemlogs abgerufen: ${total} Einträge gefunden`, {
-      filter,
-      page,
-      limit,
-      userId: req.user.id
-    });
-
-    res.status(200).json({
-      success: true,
-      count: logs.length,
-      data: formattedLogs,
-      pagination: {
-        total,
-        page,
-        pages: Math.ceil(total / limit)
-      },
-      filters: {
-        available: {
-          modules: await getDistinctValues('module'),
-          actions: await getDistinctValues('action'),
-          entities: await getDistinctValues('entity'),
-          sources: await getDistinctValues('source'),
-          levels: ['info', 'warning', 'error', 'debug']
-        }
+    try {
+      // Erweiterte Filteroptionen
+      const filter = {};
+      
+      // Default-Filter: Nur Business-Events anzeigen (keine API-Anfragen)
+      if (!req.query.source) {
+        // Verwende einen Filter, der API-Anfragen ausschließt
+        // GEÄNDERT: system_startup und system_maintenance hinzugefügt
+        filter.source = { 
+          $in: [
+            'business_event', 
+            'user_action', 
+            'data_operation', 
+            'admin_action',
+            'system_startup',    // System-Start-Ereignisse 
+            'system_maintenance' // Wartungsereignisse
+          ] 
+        };
+      } else {
+        filter.source = req.query.source;
       }
-    });
-  } catch (error) {
-    logger.error('Fehler beim Abrufen der Systemlogs:', error);
-    
-    res.status(500).json({
-      success: false,
-      message: 'Serverfehler beim Abrufen der Systemlogs'
-    });
-  }
-};
+      
+      // Basis-Filter: Level, Benutzer, Datumsbereich
+      if (req.query.level) {
+        filter.level = req.query.level;
+      }
+      
+      if (req.query.user) {
+        filter.userId = req.query.user;
+      }
+      
+      // Datumsbereiche
+      if (req.query.startDate && req.query.endDate) {
+        filter.timestamp = {
+          $gte: new Date(req.query.startDate),
+          $lte: new Date(req.query.endDate)
+        };
+      } else if (req.query.startDate) {
+        filter.timestamp = { $gte: new Date(req.query.startDate) };
+      } else if (req.query.endDate) {
+        filter.timestamp = { $lte: new Date(req.query.endDate) };
+      }
+      
+      // Erweiterte Filter
+      if (req.query.module) {
+        filter.module = req.query.module;
+      }
+      
+      if (req.query.action) {
+        filter.action = req.query.action;
+      }
+      
+      if (req.query.entity) {
+        filter.entity = req.query.entity;
+      }
+      
+      // Volltextsuche in der Nachricht
+      if (req.query.search) {
+        filter.message = { $regex: req.query.search, $options: 'i' };
+      }
+  
+      // Paginierung
+      const page = parseInt(req.query.page, 10) || 1;
+      const limit = parseInt(req.query.limit, 10) || 100;
+      const skip = (page - 1) * limit;
+  
+      // Gesamtanzahl für Paginierung
+      const total = await SystemLog.countDocuments(filter);
+      
+      // DEBUG: Log der verwendeten Filter
+      console.log('Log-Abfrage mit Filter:', JSON.stringify(filter, null, 2));
+      
+      // Logs mit Sortierung nach Zeitstempel absteigend (neueste zuerst)
+      const logs = await SystemLog.find(filter)
+        .sort({ timestamp: -1 })
+        .skip(skip)
+        .limit(limit)
+        .lean();
+      
+      // Logs in ein für das Frontend optimiertes Format konvertieren
+      const formattedLogs = logs.map(log => SystemLog.generateReadableLog(log));
+  
+      // Log-Anfrage protokollieren (nur im File)
+      logger.debug(`Systemlogs abgerufen: ${total} Einträge gefunden`, {
+        filter,
+        page,
+        limit,
+        userId: req.user.id
+      });
+  
+      res.status(200).json({
+        success: true,
+        count: logs.length,
+        data: formattedLogs,
+        pagination: {
+          total,
+          page,
+          pages: Math.ceil(total / limit)
+        },
+        filters: {
+          available: {
+            modules: await getDistinctValues('module'),
+            actions: await getDistinctValues('action'),
+            entities: await getDistinctValues('entity'),
+            sources: await getDistinctValues('source'),
+            levels: ['info', 'warning', 'error', 'debug']
+          }
+        }
+      });
+    } catch (error) {
+      logger.error('Fehler beim Abrufen der Systemlogs:', error);
+      
+      res.status(500).json({
+        success: false,
+        message: 'Serverfehler beim Abrufen der Systemlogs'
+      });
+    }
+  };
 
 // Hilfsfunktion zum Abrufen eindeutiger Werte für Filter
 async function getDistinctValues(field) {
