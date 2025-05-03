@@ -1,43 +1,51 @@
-// frontend/frontend/src/services/systemSettingsService.js
+// src/services/systemSettingsService.js - Mit Abrechnungseinstellungen
 import axiosInstance from './axiosInstance';
 
 /**
- * Systemeinstellungen abrufen (Admin)
- * @returns {Promise} Promise mit Systemeinstellungen
+ * Holt die Systemeinstellungen
+ * @returns {Promise} - Axios-Promise mit den Systemeinstellungsdaten
  */
-export const getSystemSettings = async () => {
+export const getSystemSettings = () => {
   return axiosInstance.get('/settings');
 };
 
 /**
- * Öffentliche Systemeinstellungen abrufen
- * @returns {Promise} Promise mit öffentlichen Systemeinstellungen
+ * Holt die öffentlichen Systemeinstellungen (für nicht angemeldete Benutzer)
+ * @returns {Promise} - Axios-Promise mit den öffentlichen Systemeinstellungsdaten
  */
-export const getPublicSettings = async () => {
+export const getPublicSettings = () => {
   return axiosInstance.get('/settings/public');
 };
 
 /**
- * Systemeinstellungen aktualisieren (Admin)
- * @param {Object} settingsData - Aktualisierte Systemeinstellungen
- * @returns {Promise} Promise mit aktualisierten Systemeinstellungen
+ * Aktualisiert die Systemeinstellungen
+ * @param {Object} settingsData - Aktualisierte Systemeinstellungsdaten
+ * @returns {Promise} - Axios-Promise
  */
-export const updateSystemSettings = async (settingsData) => {
+export const updateSystemSettings = (settingsData) => {
   return axiosInstance.put('/settings', settingsData);
 };
 
 /**
- * AGB abrufen
- * @returns {Promise} Promise mit AGB
+ * Holt die AGB
+ * @returns {Promise} - Axios-Promise mit den AGB
  */
-export const getTermsAndConditions = async () => {
+export const getTermsAndConditions = () => {
   return axiosInstance.get('/settings/terms');
 };
 
 /**
- * Datenschutzerklärung abrufen
- * @returns {Promise} Promise mit Datenschutzerklärung
+ * Holt die Datenschutzerklärung
+ * @returns {Promise} - Axios-Promise mit der Datenschutzerklärung
  */
-export const getPrivacyPolicy = async () => {
+export const getPrivacyPolicy = () => {
   return axiosInstance.get('/settings/privacy');
+};
+
+/**
+ * Holt speziell die Abrechnungseinstellungen
+ * @returns {Promise} - Axios-Promise mit den Abrechnungseinstellungen
+ */
+export const getBillingSettings = () => {
+  return axiosInstance.get('/settings/billing');
 };

@@ -1,4 +1,4 @@
-// src/pages/invoices/InvoiceForm.jsx - Mit durchsuchbarer Auswahl
+// src/pages/invoices/InvoiceForm.jsx (korrigierte Version)
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { toast } from 'react-toastify'
@@ -8,6 +8,7 @@ import { createInvoice, getInvoice, updateInvoice } from '../../services/invoice
 import { getCustomers } from '../../services/customerService'
 import { getOrders } from '../../services/orderService'
 import { getTimeTrackings } from '../../services/timeTrackingService'
+import { getSystemSettings } from '../../services/systemSettingsService'
 import { ArrowLeftIcon, TrashIcon, PlusIcon } from '@heroicons/react/outline'
 import { useTheme } from '../../context/ThemeContext'
 import SearchableSelect from '../../components/ui/SearchableSelect' // Durchsuchbares Dropdown
@@ -42,6 +43,16 @@ const InvoiceForm = () => {
   const [customers, setCustomers] = useState([])
   const [orders, setOrders] = useState([])
   const [timeEntries, setTimeEntries] = useState([])
+  const [billingSettings, setBillingSettings] = useState({
+    hourlyRate: 100,
+    billingInterval: 15,
+    defaultPaymentSchedule: 'full',
+    paymentInstallments: {
+      firstRate: 30,
+      secondRate: 30,
+      finalRate: 40
+    }
+  })
   const [initialValues, setInitialValues] = useState({
     invoiceNumber: '',
     customer: orderId || '',
@@ -59,7 +70,10 @@ const InvoiceForm = () => {
     issueDate: new Date().toISOString().split('T')[0],
     dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
     status: 'erstellt',
-    notes: ''
+    notes: '',
+    // Neue Felder für Zahlungsplan
+    paymentSchedule: 'full', // Standard: Vollständige Zahlung
+    installments: [] // Wird automatisch gefüllt
   })
   const [loading, setLoading] = useState(id ? true : false)
   const [dataLoading, setDataLoading] = useState(true)
@@ -72,10 +86,11 @@ const InvoiceForm = () => {
         setDataLoading(true)
         
         // Lade Kunden, Aufträge und Zeiteinträge
-        const [customersResponse, ordersResponse, timeResponse] = await Promise.all([
+        const [customersResponse, ordersResponse, timeResponse, settingsResponse] = await Promise.all([
           getCustomers(),
           getOrders(),
-          getTimeTrackings()
+          getTimeTrackings(),
+          getSystemSettings()
         ])
         
         setCustomers(customersResponse.data.data)
@@ -84,6 +99,58 @@ const InvoiceForm = () => {
         // Filtere nur nicht abgerechnete Zeiteinträge
         const unbilledTimeEntries = timeResponse.data.data.filter(entry => !entry.billed)
         setTimeEntries(unbilledTimeEntries)
+        
+        // Abrechnungseinstellungen laden
+        if (settingsResponse.data.success) {
+          const settings = settingsResponse.data.data;
+          setBillingSettings({
+            hourlyRate: settings.hourlyRate || 100,
+            billingInterval: settings.billingInterval || 15,
+            defaultPaymentSchedule: settings.defaultPaymentSchedule || 'full',
+            paymentInstallments: settings.paymentInstallments || {
+              firstRate: 30,
+              secondRate: 30,
+              finalRate: 40
+            }
+          });
+          
+          // Steuersatz und Zahlungsplan in initialValues setzen
+          setInitialValues(prev => ({
+            ...prev,
+            taxRate: settings.taxRate || 19,
+            paymentSchedule: settings.defaultPaymentSchedule || 'full'
+          }));
+        }
+
+        // Wenn orderId in URL vorhanden ist, setze den entsprechenden Kunden
+        if (orderId) {
+          const orderData = ordersResponse.data.data.find(order => order._id === orderId);
+          if (orderData) {
+            // Finde den zugehörigen Kunden
+            if (orderData.customer) {
+              let customerId;
+              if (typeof orderData.customer === 'object') {
+                customerId = orderData.customer._id;
+              } else {
+                customerId = orderData.customer;
+              }
+              
+              // Setze den Kunden und die Auftragsdaten
+              setSelectedCustomerId(customerId);
+              setSelectedOrderId(orderId);
+              
+              setInitialValues(prev => ({
+                ...prev,
+                customer: customerId,
+                order: orderId,
+                // Füge Auftragspositionen hinzu, wenn vorhanden
+                items: orderData.items && orderData.items.length > 0 
+                  ? [...orderData.items] 
+                  : prev.items
+              }));
+            }
+          }
+        }
         
         setDataLoading(false)
       } catch (error) {
@@ -131,7 +198,10 @@ const InvoiceForm = () => {
             issueDate: formatDateForInput(invoice.issueDate),
             dueDate: formatDateForInput(invoice.dueDate),
             status: invoice.status || 'erstellt',
-            notes: invoice.notes || ''
+            notes: invoice.notes || '',
+            // Zahlungsplan-Felder
+            paymentSchedule: invoice.paymentSchedule || 'full',
+            installments: invoice.installments || []
           })
           setLoading(false)
         } catch (error) {
@@ -142,8 +212,10 @@ const InvoiceForm = () => {
     }
 
     fetchData()
-    fetchInvoice()
-  }, [id, navigate])
+    if (id) {
+      fetchInvoice()
+    }
+  }, [id, navigate, orderId])
 
   // Format der Daten für die SearchableSelect-Komponenten
   const customerOptions = customers.map(customer => ({
@@ -187,7 +259,11 @@ const InvoiceForm = () => {
       
     return {
       value: entry._id,
-      label: `${date}: ${shortDesc} (${duration})`
+      label: `${date}: ${shortDesc} (${duration})`,
+      // Zusätzliche Informationen für die Berechnung
+      amount: entry.amount || 0,
+      hourlyRate: entry.hourlyRate || 0,
+      billableDuration: entry.billableDuration || entry.duration || 0
     };
   });
 
@@ -223,8 +299,69 @@ const InvoiceForm = () => {
     }
   }
 
+  const handlePaymentScheduleChange = (e, setFieldValue, values) => {
+    const schedule = e.target.value;
+    setFieldValue('paymentSchedule', schedule);
+    
+    // Bei Änderung zu Ratenzahlung automatisch Vorschlag generieren
+    if (schedule === 'installments') {
+      // Berechne die Raten basierend auf der aktuellen Zwischensumme und den gespeicherten Rateneinstellungen
+      const totalAmount = values.subtotal * (1 + values.taxRate / 100);
+      
+      // Daten für die 3 Raten
+      const firstAmount = (totalAmount * billingSettings.paymentInstallments.firstRate) / 100;
+      const secondAmount = (totalAmount * billingSettings.paymentInstallments.secondRate) / 100;
+      const finalAmount = (totalAmount * billingSettings.paymentInstallments.finalRate) / 100;
+      
+      // Fälligkeitsdaten berechnen
+      const issueDate = values.issueDate ? new Date(values.issueDate) : new Date();
+      const secondDueDate = new Date(issueDate);
+      secondDueDate.setDate(secondDueDate.getDate() + 14); // 14 Tage nach Rechnungsdatum
+      
+      const dueDate = values.dueDate ? new Date(values.dueDate) : new Date(issueDate);
+      dueDate.setDate(issueDate.getDate() + 30); // 30 Tage nach Rechnungsdatum
+      
+      // Installments erstellen
+      const installments = [
+        {
+          description: 'Anzahlung nach Auftragsbestätigung',
+          percentage: billingSettings.paymentInstallments.firstRate,
+          amount: firstAmount,
+          dueDate: values.issueDate,
+          isPaid: false
+        },
+        {
+          description: 'Teilzahlung nach Materiallieferung',
+          percentage: billingSettings.paymentInstallments.secondRate,
+          amount: secondAmount,
+          dueDate: secondDueDate.toISOString().split('T')[0],
+          isPaid: false
+        },
+        {
+          description: 'Restzahlung nach Abnahme',
+          percentage: billingSettings.paymentInstallments.finalRate,
+          amount: finalAmount,
+          dueDate: values.dueDate,
+          isPaid: false
+        }
+      ];
+      
+      setFieldValue('installments', installments);
+    } else {
+      // Bei Wechsel zu Vollzahlung, Raten zurücksetzen
+      setFieldValue('installments', []);
+    }
+  };
+
   const handleSubmit = async (values, { setSubmitting }) => {
     try {
+      // Wenn Ratenzahlung ausgewählt ist, aber keine Raten definiert sind, generiere sie
+      if (values.paymentSchedule === 'installments' && (!values.installments || values.installments.length === 0)) {
+        toast.error('Fehler: Keine Raten definiert für Ratenzahlung. Bitte wählen Sie einen anderen Zahlungsplan.');
+        setSubmitting(false);
+        return;
+      }
+      
       if (id) {
         await updateInvoice(id, values)
         toast.success('Rechnung erfolgreich aktualisiert')
@@ -250,6 +387,12 @@ const InvoiceForm = () => {
       const unitPrice = Number(item.unitPrice) || 0;
       return total + (quantity * unitPrice);
     }, 0);
+  }
+
+  // Funktion zum Berechnen der Gesamtsumme (inkl. MwSt)
+  const calculateTotal = (subtotal, taxRate) => {
+    const tax = (subtotal * taxRate) / 100;
+    return subtotal + tax;
   }
 
   if (loading || dataLoading) {
@@ -358,6 +501,7 @@ const InvoiceForm = () => {
                   >
                     <option value="erstellt">Erstellt</option>
                     <option value="versendet">Versendet</option>
+                    <option value="teilweise bezahlt">Teilweise bezahlt</option>
                     <option value="bezahlt">Bezahlt</option>
                     <option value="storniert">Storniert</option>
                   </Field>
@@ -391,6 +535,83 @@ const InvoiceForm = () => {
                   />
                 </div>
               </div>
+              
+              {/* Zahlungsplan-Auswahl */}
+              <div className="sm:col-span-6">
+                <label htmlFor="paymentSchedule" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                  Zahlungsplan
+                </label>
+                <div className="mt-1">
+                  <Field
+                    as="select"
+                    name="paymentSchedule"
+                    id="paymentSchedule"
+                    className="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-md"
+                    onChange={(e) => handlePaymentScheduleChange(e, setFieldValue, values)}
+                  >
+                    <option value="full">Vollständige Zahlung bei Fälligkeit</option>
+                    <option value="installments">Ratenzahlung (30-30-40 Prinzip)</option>
+                  </Field>
+                </div>
+                <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                  Bei Ratenzahlung wird der Gesamtbetrag in drei Zahlungen aufgeteilt: 30% nach Auftragsbestätigung, 30% nach Materiallieferung und 40% nach Abnahme.
+                </p>
+              </div>
+              
+              {/* Zeige Ratendetails an, wenn Ratenzahlung ausgewählt ist */}
+              {values.paymentSchedule === 'installments' && values.installments && values.installments.length > 0 && (
+                <div className="sm:col-span-6">
+                  <div className={`p-4 rounded-md ${isDarkMode ? 'bg-gray-700' : 'bg-gray-50'}`}>
+                    <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">Zahlungsraten</h3>
+                    
+                    <div className="overflow-x-auto">
+                      <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                        <thead className={isDarkMode ? 'bg-gray-600' : 'bg-gray-100'}>
+                          <tr>
+                            <th scope="col" className="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                              Beschreibung
+                            </th>
+                            <th scope="col" className="px-3 py-2 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                              Anteil (%)
+                            </th>
+                            <th scope="col" className="px-3 py-2 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                              Betrag
+                            </th>
+                            <th scope="col" className="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                              Fälligkeitsdatum
+                            </th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+                          {values.installments.map((installment, index) => (
+                            <tr key={index} className={isDarkMode ? 'bg-gray-700' : 'bg-white'}>
+                              <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-900 dark:text-white">
+                                {installment.description}
+                              </td>
+                              <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400 text-right">
+                                {installment.percentage}%
+                              </td>
+                              <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400 text-right">
+                                {new Intl.NumberFormat('de-DE', {
+                                  style: 'currency',
+                                  currency: 'EUR'
+                                }).format(installment.amount)}
+                              </td>
+                              <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                                {installment.dueDate}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                    
+                    <p className="mt-3 text-xs text-gray-500 dark:text-gray-400">
+                      Die Raten werden automatisch basierend auf dem Rechnungsbetrag berechnet. Die Summe entspricht 100% des Gesamtbetrags.
+                    </p>
+                  </div>
+                </div>
+              )}
               
               <div className="sm:col-span-6">
                 <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-3">Rechnungspositionen</h3>
@@ -460,6 +681,19 @@ const InvoiceForm = () => {
                                   // Berechne die neue Gesamtsumme aus den aktualisierten Werten
                                   const newSubtotal = calculateSubtotal(updatedItems);
                                   setFieldValue('subtotal', newSubtotal);
+                                  
+                                  // Aktualisiere auch die Raten, wenn Ratenzahlung ausgewählt ist
+                                  if (values.paymentSchedule === 'installments') {
+                                    const total = calculateTotal(newSubtotal, values.taxRate);
+                                    
+                                    // Aktualisiere die Ratenbeträge
+                                    const updatedInstallments = values.installments.map(installment => ({
+                                      ...installment,
+                                      amount: (total * installment.percentage) / 100
+                                    }));
+                                    
+                                    setFieldValue('installments', updatedInstallments);
+                                  }
                                 }}
                               />
                               <ErrorMessage
@@ -502,6 +736,19 @@ const InvoiceForm = () => {
                                   // Berechne die neue Gesamtsumme aus den aktualisierten Werten
                                   const newSubtotal = calculateSubtotal(updatedItems);
                                   setFieldValue('subtotal', newSubtotal);
+                                  
+                                  // Aktualisiere auch die Raten, wenn Ratenzahlung ausgewählt ist
+                                  if (values.paymentSchedule === 'installments') {
+                                    const total = calculateTotal(newSubtotal, values.taxRate);
+                                    
+                                    // Aktualisiere die Ratenbeträge
+                                    const updatedInstallments = values.installments.map(installment => ({
+                                      ...installment,
+                                      amount: (total * installment.percentage) / 100
+                                    }));
+                                    
+                                    setFieldValue('installments', updatedInstallments);
+                                  }
                                 }}
                               />
                               <ErrorMessage
@@ -526,6 +773,19 @@ const InvoiceForm = () => {
                                     // Berechne die neue Zwischensumme
                                     const newSubtotal = calculateSubtotal(newItems);
                                     setFieldValue('subtotal', newSubtotal);
+                                    
+                                    // Aktualisiere auch die Raten, wenn Ratenzahlung ausgewählt ist
+                                    if (values.paymentSchedule === 'installments') {
+                                      const total = calculateTotal(newSubtotal, values.taxRate);
+                                      
+                                      // Aktualisiere die Ratenbeträge
+                                      const updatedInstallments = values.installments.map(installment => ({
+                                        ...installment,
+                                        amount: (total * installment.percentage) / 100
+                                      }));
+                                      
+                                      setFieldValue('installments', updatedInstallments);
+                                    }
                                   } else {
                                     toast.warning('Mindestens eine Position ist erforderlich');
                                   }
@@ -578,13 +838,53 @@ const InvoiceForm = () => {
                           onChange={(e) => {
                             if (e.target.checked) {
                               // Alle auswählen
-                              setFieldValue(
-                                'timeTracking',
-                                filteredTimeEntries.map(entry => entry._id)
-                              );
+                              const allTimeEntryIds = filteredTimeEntries.map(entry => entry._id);
+                              setFieldValue('timeTracking', allTimeEntryIds);
+                              
+                              // Berechne Zwischensumme für Zeiteinträge
+                              const timeEntryTotal = filteredTimeEntries.reduce((sum, entry) => {
+                                return sum + (entry.amount || 0);
+                              }, 0);
+                              
+                              // Aktuelle Zwischensumme der Artikelpositionen
+                              const itemsSubtotal = calculateSubtotal(values.items);
+                              
+                              // Gesamtsumme aktualisieren
+                              const newSubtotal = itemsSubtotal + timeEntryTotal;
+                              setFieldValue('subtotal', newSubtotal);
+                              
+                              // Aktualisiere auch die Raten, wenn Ratenzahlung ausgewählt ist
+                              if (values.paymentSchedule === 'installments') {
+                                const total = calculateTotal(newSubtotal, values.taxRate);
+                                
+                                // Aktualisiere die Ratenbeträge
+                                const updatedInstallments = values.installments.map(installment => ({
+                                  ...installment,
+                                  amount: (total * installment.percentage) / 100
+                                }));
+                                
+                                setFieldValue('installments', updatedInstallments);
+                              }
                             } else {
                               // Alle abwählen
                               setFieldValue('timeTracking', []);
+                              
+                              // Berechne Zwischensumme ohne Zeiteinträge
+                              const itemsSubtotal = calculateSubtotal(values.items);
+                              setFieldValue('subtotal', itemsSubtotal);
+                              
+                              // Aktualisiere auch die Raten, wenn Ratenzahlung ausgewählt ist
+                              if (values.paymentSchedule === 'installments') {
+                                const total = calculateTotal(itemsSubtotal, values.taxRate);
+                                
+                                // Aktualisiere die Ratenbeträge
+                                const updatedInstallments = values.installments.map(installment => ({
+                                  ...installment,
+                                  amount: (total * installment.percentage) / 100
+                                }));
+                                
+                                setFieldValue('installments', updatedInstallments);
+                              }
                             }
                           }}
                         />
@@ -608,7 +908,35 @@ const InvoiceForm = () => {
                             onChange={(e) => {
                               const selectedId = e.target.value;
                               if (selectedId && !values.timeTracking.includes(selectedId)) {
-                                setFieldValue('timeTracking', [...values.timeTracking, selectedId]);
+                                const updatedTimeTracking = [...values.timeTracking, selectedId];
+                                setFieldValue('timeTracking', updatedTimeTracking);
+                                
+                                // Suche den ausgewählten Zeiteintrag
+                                const selectedEntry = filteredTimeEntries.find(entry => entry._id === selectedId);
+                                if (selectedEntry) {
+                                  // Aktuelle Zwischensumme berechnen
+                                  const itemsSubtotal = calculateSubtotal(values.items);
+                                  
+                                  // Berechne zusätzlichen Betrag für den ausgewählten Zeiteintrag
+                                  const entryAmount = selectedEntry.amount || 0;
+                                  
+                                  // Aktualisiere Zwischensumme
+                                  const newSubtotal = itemsSubtotal + entryAmount;
+                                  setFieldValue('subtotal', newSubtotal);
+                                  
+                                  // Aktualisiere auch die Raten, wenn Ratenzahlung ausgewählt ist
+                                  if (values.paymentSchedule === 'installments') {
+                                    const total = calculateTotal(newSubtotal, values.taxRate);
+                                    
+                                    // Aktualisiere die Ratenbeträge
+                                    const updatedInstallments = values.installments.map(installment => ({
+                                      ...installment,
+                                      amount: (total * installment.percentage) / 100
+                                    }));
+                                    
+                                    setFieldValue('installments', updatedInstallments);
+                                  }
+                                }
                               }
                             }}
                             options={timeEntryOptions.filter(option => !values.timeTracking.includes(option.value))}
@@ -628,13 +956,61 @@ const InvoiceForm = () => {
                               name="timeTracking"
                               value={entry._id}
                               className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 dark:border-gray-600 dark:bg-gray-700 rounded"
+                              onChange={(e) => {
+                                // Standard Formik-Handler für Checkbox-Arrays aufrufen
+                                const { checked } = e.target;
+                                const { value } = e.target;
+                                const { timeTracking } = values;
+                                
+                                let newTimeTracking;
+                                if (checked) {
+                                  newTimeTracking = [...timeTracking, value];
+                                } else {
+                                  newTimeTracking = timeTracking.filter(v => v !== value);
+                                }
+                                
+                                // Formularfeld aktualisieren
+                                setFieldValue('timeTracking', newTimeTracking);
+                                
+                                // Berechne neue Zwischensumme basierend auf ausgewählten Zeiteinträgen
+                                // Artikel-Zwischensumme
+                                const itemsSubtotal = calculateSubtotal(values.items);
+                                
+                                // Zeiteinträge-Zwischensumme
+                                const selectedEntries = filteredTimeEntries.filter(entry => 
+                                  newTimeTracking.includes(entry._id)
+                                );
+                                const timeEntryTotal = selectedEntries.reduce((sum, entry) => {
+                                  return sum + (entry.amount || 0);
+                                }, 0);
+                                
+                                // Gesamtsumme
+                                const newSubtotal = itemsSubtotal + timeEntryTotal;
+                                setFieldValue('subtotal', newSubtotal);
+                                
+                                // Aktualisiere auch die Raten, wenn Ratenzahlung ausgewählt ist
+                                if (values.paymentSchedule === 'installments') {
+                                  const total = calculateTotal(newSubtotal, values.taxRate);
+                                  
+                                  // Aktualisiere die Ratenbeträge
+                                  const updatedInstallments = values.installments.map(installment => ({
+                                    ...installment,
+                                    amount: (total * installment.percentage) / 100
+                                  }));
+                                  
+                                  setFieldValue('installments', updatedInstallments);
+                                }
+                              }}
                             />
                             <span className="ml-2 text-sm text-gray-700 dark:text-gray-200">
                               {new Date(entry.startTime).toLocaleDateString('de-DE')}: {entry.description} (
                               {entry.duration
                                 ? `${Math.floor(entry.duration / 60)}h ${entry.duration % 60}min`
                                 : '-'}
-                              )
+                              ) - {new Intl.NumberFormat('de-DE', {
+                                style: 'currency',
+                                currency: 'EUR'
+                              }).format(entry.amount || 0)}
                             </span>
                           </label>
                         </div>
@@ -660,6 +1036,23 @@ const InvoiceForm = () => {
                         className={`shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-md ${
                           errors.subtotal && touched.subtotal ? 'border-red-300 dark:border-red-500' : ''
                         }`}
+                        onChange={(e) => {
+                          const newSubtotal = Number(e.target.value);
+                          setFieldValue('subtotal', newSubtotal);
+                          
+                          // Aktualisiere auch die Raten, wenn Ratenzahlung ausgewählt ist
+                          if (values.paymentSchedule === 'installments') {
+                            const total = calculateTotal(newSubtotal, values.taxRate);
+                            
+                            // Aktualisiere die Ratenbeträge
+                            const updatedInstallments = values.installments.map(installment => ({
+                              ...installment,
+                              amount: (total * installment.percentage) / 100
+                            }));
+                            
+                            setFieldValue('installments', updatedInstallments);
+                          }
+                        }}
                       />
                       <ErrorMessage name="subtotal" component="div" className="mt-1 text-sm text-red-600 dark:text-red-400" />
                     </div>
@@ -679,6 +1072,23 @@ const InvoiceForm = () => {
                         className={`shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-md ${
                           errors.taxRate && touched.taxRate ? 'border-red-300 dark:border-red-500' : ''
                         }`}
+                        onChange={(e) => {
+                          const newTaxRate = Number(e.target.value);
+                          setFieldValue('taxRate', newTaxRate);
+                          
+                          // Aktualisiere auch die Raten, wenn Ratenzahlung ausgewählt ist
+                          if (values.paymentSchedule === 'installments') {
+                            const total = calculateTotal(values.subtotal, newTaxRate);
+                            
+                            // Aktualisiere die Ratenbeträge
+                            const updatedInstallments = values.installments.map(installment => ({
+                              ...installment,
+                              amount: (total * installment.percentage) / 100
+                            }));
+                            
+                            setFieldValue('installments', updatedInstallments);
+                          }
+                        }}
                       />
                       <ErrorMessage name="taxRate" component="div" className="mt-1 text-sm text-red-600 dark:text-red-400" />
                     </div>
@@ -759,4 +1169,5 @@ const InvoiceForm = () => {
     </div>
   )
 }
+
 export default InvoiceForm

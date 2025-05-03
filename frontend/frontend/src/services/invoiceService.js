@@ -110,3 +110,24 @@ export const sendInvoiceEmail = (id, emailData = {}) => {
 export const getInvoiceStatistics = () => {
   return axiosInstance.get('/invoices/statistics');
 };
+
+
+/**
+ * Aktualisiert den Status einer Zahlungsrate
+ * @param {string} id - ID der Rechnung
+ * @param {number} installmentIndex - Index der Zahlungsrate (0-basiert)
+ * @param {Object} installmentData - Daten der aktualisierten Zahlungsrate
+ * @returns {Promise} - Axios-Promise
+ */
+export const updateInstallmentStatus = (id, installmentIndex, installmentData) => {
+  return axiosInstance.patch(`/invoices/${id}/installment/${installmentIndex}`, installmentData);
+};
+
+
+/**
+ * Erzeugt eine Rechnungsnummer
+ * @returns {Promise} - Axios-Promise mit der neuen Rechnungsnummer
+ */
+export const generateInvoiceNumber = () => {
+  return axiosInstance.get('/invoices/generate-number');
+};

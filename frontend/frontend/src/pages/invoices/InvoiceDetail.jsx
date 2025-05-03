@@ -1,8 +1,8 @@
-// src/pages/invoices/InvoiceDetail.jsx - Mit Dark Mode Support
+// src/pages/invoices/InvoiceDetail.jsx - Mit Zahlungsplan
 import { useState, useEffect } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import { toast } from 'react-toastify'
-import { getInvoice, updateInvoiceStatus } from '../../services/invoiceService'
+import { getInvoice, updateInvoiceStatus, updateInstallmentStatus } from '../../services/invoiceService'
 import { PencilIcon, ArrowLeftIcon, DownloadIcon, MailIcon, CheckIcon } from '@heroicons/react/outline'
 import { format } from 'date-fns'
 import { de } from 'date-fns/locale'
@@ -71,6 +71,8 @@ const InvoiceDetail = () => {
         return isDarkMode ? 'bg-blue-900 text-blue-100' : 'bg-blue-100 text-blue-800'
       case 'versendet':
         return isDarkMode ? 'bg-yellow-900 text-yellow-100' : 'bg-yellow-100 text-yellow-800'
+      case 'teilweise bezahlt':
+        return isDarkMode ? 'bg-indigo-900 text-indigo-100' : 'bg-indigo-100 text-indigo-800'
       case 'bezahlt':
         return isDarkMode ? 'bg-green-900 text-green-100' : 'bg-green-100 text-green-800'
       case 'storniert':
@@ -89,6 +91,48 @@ const InvoiceDetail = () => {
       toast.error('Fehler beim Ändern des Rechnungsstatus')
     }
   }
+
+  // Neue Funktion: Ratenstatus ändern
+  const handleInstallmentStatusChange = async (installmentIndex, isPaid) => {
+    try {
+      // Rate-Objekt erstellen
+      const updatedInstallment = {
+        ...invoice.installments[installmentIndex],
+        isPaid,
+        paidDate: isPaid ? new Date().toISOString() : null
+      };
+
+      await updateInstallmentStatus(id, installmentIndex, updatedInstallment);
+      
+      // Invoice-Objekt aktualisieren
+      const updatedInstallments = [...invoice.installments];
+      updatedInstallments[installmentIndex] = updatedInstallment;
+      
+      // Rechnungsstatus aktualisieren basierend auf den Ratenzahlungen
+      let newStatus = invoice.status;
+      const allPaid = updatedInstallments.every(inst => inst.isPaid);
+      const somePaid = updatedInstallments.some(inst => inst.isPaid);
+      
+      if (allPaid) {
+        newStatus = 'bezahlt';
+      } else if (somePaid) {
+        newStatus = 'teilweise bezahlt';
+      } else {
+        newStatus = invoice.status === 'versendet' ? 'versendet' : 'erstellt';
+      }
+      
+      setInvoice({ 
+        ...invoice, 
+        installments: updatedInstallments,
+        status: newStatus
+      });
+      
+      toast.success(`Rate ${installmentIndex + 1} wurde ${isPaid ? 'als bezahlt' : 'als unbezahlt'} markiert`);
+    } catch (error) {
+      console.error('Fehler beim Aktualisieren des Ratenstatus:', error);
+      toast.error('Fehler beim Aktualisieren der Rate');
+    }
+  };
 
   const handleGeneratePdf = () => {
     // In einer realen Anwendung würde hier die PDF-Generierung implementiert werden
@@ -144,7 +188,7 @@ const InvoiceDetail = () => {
               type="button"
               onClick={handleSendEmail}
               className="inline-flex items-center px-3 py-2 border border-gray-300 dark:border-gray-600 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600"
-              disabled={invoice.status === 'versendet' || invoice.status === 'bezahlt' || invoice.status === 'storniert'}
+              disabled={invoice.status === 'versendet' || invoice.status === 'teilweise bezahlt' || invoice.status === 'bezahlt' || invoice.status === 'storniert'}
             >
               <MailIcon className="-ml-0.5 mr-2 h-4 w-4" />
               Senden
@@ -230,6 +274,7 @@ const InvoiceDetail = () => {
                   >
                     <option value="erstellt">Erstellt</option>
                     <option value="versendet">Versendet</option>
+                    <option value="teilweise bezahlt">Teilweise bezahlt</option>
                     <option value="bezahlt">Bezahlt</option>
                     <option value="storniert">Storniert</option>
                   </select>
@@ -249,6 +294,78 @@ const InvoiceDetail = () => {
               </dd>
             </div>
             <div className="bg-gray-50 dark:bg-gray-700 px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
+              <dt className="text-sm font-medium text-gray-500 dark:text-gray-300">Zahlungsplan</dt>
+              <dd className="mt-1 text-sm text-gray-900 dark:text-white sm:mt-0 sm:col-span-2">
+                {invoice.paymentSchedule === 'installments' ? 'Ratenzahlung (30-30-40 Prinzip)' : 'Vollständige Zahlung bei Fälligkeit'}
+                
+                {/* Anzeige der Raten, falls Ratenzahlung */}
+                {invoice.paymentSchedule === 'installments' && invoice.installments && invoice.installments.length > 0 && (
+                  <div className="mt-3">
+                    <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700 border border-gray-200 dark:border-gray-700 rounded-md">
+                      <thead className="bg-gray-100 dark:bg-gray-600">
+                        <tr>
+                          <th scope="col" className="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                            Beschreibung
+                          </th>
+                          <th scope="col" className="px-3 py-2 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                            Betrag
+                          </th>
+                          <th scope="col" className="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                            Fälligkeitsdatum
+                          </th>
+                          <th scope="col" className="px-3 py-2 text-center text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                            Status
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                        {invoice.installments.map((installment, index) => (
+                          <tr key={index} className={isDarkMode ? 'bg-gray-800' : 'bg-white'}>
+                            <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-900 dark:text-white">
+                              {installment.description}
+                            </td>
+                            <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400 text-right">
+                              {formatCurrency(installment.amount)}
+                            </td>
+                            <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                              {formatDate(installment.dueDate)}
+                            </td>
+                            <td className="px-3 py-2 whitespace-nowrap text-center">
+                              <div className="flex items-center justify-center">
+                                <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full mr-2 ${
+                                  installment.isPaid 
+                                    ? isDarkMode ? 'bg-green-900 text-green-100' : 'bg-green-100 text-green-800'
+                                    : isDarkMode ? 'bg-yellow-900 text-yellow-100' : 'bg-yellow-100 text-yellow-800'
+                                }`}>
+                                  {installment.isPaid ? 'Bezahlt' : 'Offen'}
+                                  {installment.isPaid && installment.paidDate && ` (${formatDate(installment.paidDate)})`}
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={() => handleInstallmentStatusChange(index, !installment.isPaid)}
+                                  className={`inline-flex items-center px-1.5 py-1 text-xs border rounded-md ${
+                                    installment.isPaid
+                                      ? isDarkMode 
+                                        ? 'border-red-600 text-red-400 hover:bg-red-900' 
+                                        : 'border-red-300 text-red-700 hover:bg-red-100'
+                                      : isDarkMode 
+                                        ? 'border-green-600 text-green-400 hover:bg-green-900' 
+                                        : 'border-green-300 text-green-700 hover:bg-green-100'
+                                  }`}
+                                >
+                                  {installment.isPaid ? 'Als offen markieren' : 'Als bezahlt markieren'}
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </dd>
+            </div>
+            <div className="bg-white dark:bg-gray-800 px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
               <dt className="text-sm font-medium text-gray-500 dark:text-gray-300">Notizen</dt>
               <dd className="mt-1 text-sm text-gray-900 dark:text-white sm:mt-0 sm:col-span-2">
                 {invoice.notes ? (
@@ -391,6 +508,18 @@ const InvoiceDetail = () => {
                   >
                     Dauer
                   </th>
+                  <th
+                    scope="col"
+                    className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider"
+                  >
+                    Abrechenbar
+                  </th>
+                  <th
+                    scope="col"
+                    className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider"
+                  >
+                    Betrag
+                  </th>
                 </tr>
               </thead>
               <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
@@ -415,8 +544,26 @@ const InvoiceDetail = () => {
                         ? `${Math.floor(entry.duration / 60)}h ${entry.duration % 60}min`
                         : '-'}
                     </td>
+                    <td className="px-6 py-4 align-top text-sm text-gray-500 dark:text-gray-400 text-right">
+                      {entry.billableDuration
+                        ? `${Math.floor(entry.billableDuration / 60)}h ${entry.billableDuration % 60}min`
+                        : entry.duration
+                        ? `${Math.floor(entry.duration / 60)}h ${entry.duration % 60}min`
+                        : '-'}
+                    </td>
+                    <td className="px-6 py-4 align-top text-sm text-gray-500 dark:text-gray-400 text-right">
+                      {formatCurrency(entry.amount || 0)}
+                    </td>
                   </tr>
                 ))}
+                <tr className="bg-gray-50 dark:bg-gray-700">
+                  <td colSpan="6" className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white text-right">
+                    Summe Arbeitszeiten:
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white text-right">
+                    {formatCurrency(invoice.timeTracking.reduce((sum, entry) => sum + (entry.amount || 0), 0))}
+                  </td>
+                </tr>
               </tbody>
             </table>
           </div>

@@ -1,4 +1,4 @@
-// frontend/frontend/src/pages/admin/SystemSettings.jsx
+// frontend/frontend/src/pages/admin/SystemSettings.jsx (mit Abrechnungseinstellungen)
 import { useState, useEffect } from 'react';
 import { toast } from 'react-toastify';
 import { getSystemSettings, updateSystemSettings } from '../../services/systemSettingsService';
@@ -8,7 +8,7 @@ import {
   CurrencyEuroIcon,
   DocumentTextIcon,
   ShieldCheckIcon,
-  MailIcon,
+  ClockIcon,
   UploadIcon
 } from '@heroicons/react/outline';
 import TermsEditor from './TermsEditor';
@@ -28,6 +28,16 @@ const SystemSettings = () => {
     currencySymbol: '€',
     taxRate: 19,
     paymentTerms: 30,
+    
+    // Neue Abrechnungseinstellungen
+    hourlyRate: 100,
+    billingInterval: 15,
+    defaultPaymentSchedule: 'full',
+    paymentInstallments: {
+      firstRate: 30,
+      secondRate: 30,
+      finalRate: 40
+    },
 
     // Rechtliche Einstellungen
     termsAndConditions: '',
@@ -70,6 +80,16 @@ const SystemSettings = () => {
     }));
   };
 
+  const handleNestedChange = (parentKey, childKey, value) => {
+    setSettingsData(prev => ({
+      ...prev,
+      [parentKey]: {
+        ...prev[parentKey],
+        [childKey]: value
+      }
+    }));
+  };
+
   const handleTextAreaChange = (name, value) => {
     setSettingsData(prev => ({
       ...prev,
@@ -77,8 +97,28 @@ const SystemSettings = () => {
     }));
   };
 
+  const validatePaymentInstallments = () => {
+    const { firstRate, secondRate, finalRate } = settingsData.paymentInstallments;
+    const total = parseFloat(firstRate) + parseFloat(secondRate) + parseFloat(finalRate);
+    
+    // Toleranz für Rundungsfehler (0.01%)
+    if (Math.abs(total - 100) > 0.01) {
+      toast.error(`Die Summe der Raten muss 100% ergeben. Aktuell: ${total.toFixed(2)}%`);
+      return false;
+    }
+    return true;
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
+    
+    // Überprüfe die Ratensumme, wenn Ratenzahlung aktiviert ist
+    if (settingsData.defaultPaymentSchedule === 'installments') {
+      if (!validatePaymentInstallments()) {
+        return;
+      }
+    }
+    
     setSaving(true);
 
     try {
@@ -168,6 +208,21 @@ const SystemSettings = () => {
             >
               <CurrencyEuroIcon className="h-5 w-5 inline mr-2" />
               Finanzen
+            </button>
+            <button
+              onClick={() => setActiveTab('billing')}
+              className={`py-4 px-6 text-center border-b-2 font-medium text-sm ${
+                activeTab === 'billing'
+                  ? isDarkMode 
+                    ? 'border-blue-500 text-blue-400' 
+                    : 'border-blue-500 text-blue-600'
+                  : isDarkMode
+                    ? 'border-transparent text-gray-400 hover:text-gray-300 hover:border-gray-600' 
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
+            >
+              <ClockIcon className="h-5 w-5 inline mr-2" />
+              Abrechnung
             </button>
             <button
               onClick={() => setActiveTab('legal')}
@@ -414,6 +469,193 @@ const SystemSettings = () => {
               </div>
             )}
 
+            {/* Neue Abrechnungseinstellungen */}
+            {activeTab === 'billing' && (
+              <div className="space-y-6">
+                <h2 className={`text-lg font-medium ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Abrechnungseinstellungen</h2>
+                
+                <div className="grid grid-cols-1 gap-y-6 gap-x-4 sm:grid-cols-6">
+                  <div className="sm:col-span-3">
+                    <label htmlFor="hourlyRate" className={`block text-sm font-medium ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                      Standard-Stundensatz ({settingsData.currencySymbol})
+                    </label>
+                    <div className="mt-1">
+                      <input
+                        type="number"
+                        name="hourlyRate"
+                        id="hourlyRate"
+                        min="0"
+                        step="0.01"
+                        className={`shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm 
+                          ${isDarkMode ? 'bg-gray-700 border-gray-600 text-white' : 'border-gray-300 text-gray-900'} rounded-md`}
+                        value={settingsData.hourlyRate}
+                        onChange={handleChange}
+                      />
+                    </div>
+                    <p className={`mt-2 text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                      Der Standardstundensatz für die Zeiterfassung.
+                    </p>
+                  </div>
+
+                  <div className="sm:col-span-3">
+                    <label htmlFor="billingInterval" className={`block text-sm font-medium ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                      Abrechnungsintervall (Minuten)
+                    </label>
+                    <div className="mt-1">
+                      <select
+                        id="billingInterval"
+                        name="billingInterval"
+                        className={`shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm 
+                          ${isDarkMode ? 'bg-gray-700 border-gray-600 text-white' : 'border-gray-300 text-gray-900'} rounded-md`}
+                        value={settingsData.billingInterval}
+                        onChange={handleChange}
+                      >
+                        <option value="1">Jede Minute</option>
+                        <option value="15">Jede angefangene 15 Minuten</option>
+                        <option value="30">Jede angefangene 30 Minuten</option>
+                        <option value="60">Jede angefangene Stunde</option>
+                      </select>
+                    </div>
+                    <p className={`mt-2 text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                      Jede angefangene Zeiteinheit wird voll berechnet.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="border-t border-b py-6 my-6 border-gray-200 dark:border-gray-700">
+                  <h3 className={`text-lg font-medium ${isDarkMode ? 'text-white' : 'text-gray-900'} mb-4`}>
+                    Zahlungsplan
+                  </h3>
+                  
+                  <div className="mb-4">
+                    <label className={`block text-sm font-medium ${isDarkMode ? 'text-gray-300' : 'text-gray-700'} mb-2`}>
+                      Standard-Zahlungsart
+                    </label>
+                    <div className="space-y-2">
+                      <div className="flex items-center">
+                        <input
+                          id="paymentFull"
+                          name="defaultPaymentSchedule"
+                          type="radio"
+                          value="full"
+                          className={`focus:ring-blue-500 h-4 w-4 text-blue-600 ${
+                            isDarkMode ? 'bg-gray-700 border-gray-600' : 'border-gray-300'
+                          }`}
+                          checked={settingsData.defaultPaymentSchedule === 'full'}
+                          onChange={handleChange}
+                        />
+                        <label htmlFor="paymentFull" className={`ml-3 block text-sm font-medium ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                          Vollständige Zahlung bei Fälligkeit
+                        </label>
+                      </div>
+                      <div className="flex items-center">
+                        <input
+                          id="paymentInstallments"
+                          name="defaultPaymentSchedule"
+                          type="radio"
+                          value="installments"
+                          className={`focus:ring-blue-500 h-4 w-4 text-blue-600 ${
+                            isDarkMode ? 'bg-gray-700 border-gray-600' : 'border-gray-300'
+                          }`}
+                          checked={settingsData.defaultPaymentSchedule === 'installments'}
+                          onChange={handleChange}
+                        />
+                        <label htmlFor="paymentInstallments" className={`ml-3 block text-sm font-medium ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                          Ratenzahlung (30-30-40 Prinzip)
+                        </label>
+                      </div>
+                    </div>
+                  </div>
+
+                  {settingsData.defaultPaymentSchedule === 'installments' && (
+                    <div className={`p-4 rounded-md mt-4 ${isDarkMode ? 'bg-gray-700' : 'bg-gray-50'}`}>
+                      <h4 className={`text-sm font-medium ${isDarkMode ? 'text-gray-300' : 'text-gray-700'} mb-3`}>
+                        Ratenzahlungsplan konfigurieren
+                      </h4>
+                      <p className={`text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-500'} mb-4`}>
+                        Legen Sie fest, wie die Zahlungen aufgeteilt werden sollen. Die Summe muss 100% ergeben.
+                      </p>
+                      
+                      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                        <div>
+                          <label htmlFor="firstRate" className={`block text-sm font-medium ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                            Erste Rate (%)
+                          </label>
+                          <div className="mt-1">
+                            <input
+                              type="number"
+                              id="firstRate"
+                              min="0"
+                              max="100"
+                              step="1"
+                              className={`shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm 
+                                ${isDarkMode ? 'bg-gray-600 border-gray-500 text-white' : 'border-gray-300 text-gray-900'} rounded-md`}
+                              value={settingsData.paymentInstallments.firstRate}
+                              onChange={(e) => handleNestedChange('paymentInstallments', 'firstRate', e.target.value)}
+                            />
+                          </div>
+                          <p className={`mt-1 text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                            Nach Materiallieferung
+                          </p>
+                        </div>
+                        
+                        <div>
+                          <label htmlFor="finalRate" className={`block text-sm font-medium ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                            Letzte Rate (%)
+                          </label>
+                          <div className="mt-1">
+                            <input
+                              type="number"
+                              id="finalRate"
+                              min="0"
+                              max="100"
+                              step="1"
+                              className={`shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm 
+                                ${isDarkMode ? 'bg-gray-600 border-gray-500 text-white' : 'border-gray-300 text-gray-900'} rounded-md`}
+                              value={settingsData.paymentInstallments.finalRate}
+                              onChange={(e) => handleNestedChange('paymentInstallments', 'finalRate', e.target.value)}
+                            />
+                          </div>
+                          <p className={`mt-1 text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                            Nach Abnahme
+                          </p>
+                        </div>
+                      </div>
+                      
+                      <div className="mt-4">
+                        <div className={`p-3 rounded-md ${
+                          validatePaymentInstallments() 
+                            ? isDarkMode ? 'bg-green-900 text-green-200' : 'bg-green-100 text-green-800'
+                            : isDarkMode ? 'bg-red-900 text-red-200' : 'bg-red-100 text-red-800'
+                        }`}>
+                          {validatePaymentInstallments() ? (
+                            <p className="text-sm">
+                              Summe der Raten: 100% ✓
+                            </p>
+                          ) : (
+                            <p className="text-sm">
+                              Die Summe der Raten ist nicht 100%. Aktuelle Summe: 
+                              {parseFloat(settingsData.paymentInstallments.firstRate) +
+                               parseFloat(settingsData.paymentInstallments.secondRate) +
+                               parseFloat(settingsData.paymentInstallments.finalRate)}%
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+                
+                <div className={`p-4 rounded-md ${isDarkMode ? 'bg-blue-900' : 'bg-blue-50'} border ${isDarkMode ? 'border-blue-800' : 'border-blue-200'}`}>
+                  <h4 className={`text-sm font-medium ${isDarkMode ? 'text-blue-200' : 'text-blue-800'} mb-2`}>Hinweis zur Anwendung</h4>
+                  <p className={`text-sm ${isDarkMode ? 'text-blue-200' : 'text-blue-700'}`}>
+                    Der Standard-Stundensatz und das Abrechnungsintervall werden automatisch bei der Zeiterfassung angewendet.
+                    Der Standard-Zahlungsplan wird bei der Rechnungserstellung vorgeschlagen.
+                  </p>
+                </div>
+              </div>
+            )}
+
             {/* Rechtliche Einstellungen */}
             {activeTab === 'legal' && (
               <div className="space-y-6">
@@ -534,4 +776,4 @@ const SystemSettings = () => {
   );
 };
 
-export default SystemSettings;
+export default SystemSettings

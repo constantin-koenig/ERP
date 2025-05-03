@@ -67,7 +67,8 @@ const SystemLogSchema = new mongoose.Schema({
       'authorization',      // Add this if used
       'payment',            // Add this if used
       'business_rule',      // Add this if used
-      'data_access'         // Add this if used
+      'data_access',         // Add this if used
+      'validation_error'
     ]
   },
   ipAddress: {

@@ -1,4 +1,4 @@
-// backend/models/SystemSettings.js
+// backend/models/SystemSettings.js (Mit den zusätzlichen Feldern)
 const mongoose = require('mongoose');
 
 const SystemSettingsSchema = new mongoose.Schema({
@@ -29,6 +29,43 @@ const SystemSettingsSchema = new mongoose.Schema({
   paymentTerms: {
     type: Number, // Tage
     default: 30
+  },
+  
+  // Neue Finanzeinstellungen
+  hourlyRate: {
+    type: Number,
+    default: 100, // Standardstundensatz in der Währungseinheit (z.B. EUR)
+    min: 0
+  },
+  billingInterval: {
+    type: Number,
+    enum: [1, 15, 30, 60], // Mögliche Werte: 1, 15, 30 oder 60 Minuten
+    default: 15 // Standard: Jede angefangene 15 Minuten wird berechnet
+  },
+  defaultPaymentSchedule: {
+    type: String,
+    enum: ['full', 'installments'],
+    default: 'full' // Standard: Vollständige Zahlung
+  },
+  paymentInstallments: {
+    firstRate: {
+      type: Number,
+      default: 30, // 30% nach Auftragsbestätigung
+      min: 0,
+      max: 100
+    },
+    secondRate: {
+      type: Number,
+      default: 30, // 30% nach Materiallieferung
+      min: 0,
+      max: 100
+    },
+    finalRate: {
+      type: Number,
+      default: 40, // 40% nach Abnahme
+      min: 0,
+      max: 100
+    }
   },
 
   // Rechtliche Einstellungen
@@ -77,6 +114,22 @@ const SystemSettingsSchema = new mongoose.Schema({
 }, {
   // Nutze versionKey für optimistische Sperrung
   timestamps: true
+});
+
+// Stellen Sie sicher, dass die Summe der Raten 100% ergibt
+SystemSettingsSchema.pre('save', function(next) {
+  if (this.paymentInstallments) {
+    const totalPercent = 
+      this.paymentInstallments.firstRate + 
+      this.paymentInstallments.secondRate + 
+      this.paymentInstallments.finalRate;
+    
+    if (Math.round(totalPercent) !== 100) {
+      const error = new Error('Die Summe der Raten muss 100% ergeben.');
+      return next(error);
+    }
+  }
+  next();
 });
 
 // Stellen Sie sicher, dass es nur einen Eintrag für die Systemeinstellungen gibt

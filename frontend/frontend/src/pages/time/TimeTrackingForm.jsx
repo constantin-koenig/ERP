@@ -1,161 +1,241 @@
-// src/pages/time/TimeTrackingForm.jsx
-import { useState, useEffect } from 'react'
-import { useParams, useNavigate, useLocation } from 'react-router-dom'
-import { toast } from 'react-toastify'
-import { Formik, Form, Field, ErrorMessage } from 'formik'
-import * as Yup from 'yup'
-import { createTimeTracking, getTimeTracking, updateTimeTracking } from '../../services/timeTrackingService'
-import { getOrders } from '../../services/orderService'
-import { getAssignableUsers } from '../../services/authService'
-import { ArrowLeftIcon } from '@heroicons/react/outline'
-import { format } from 'date-fns'
-import { useTheme } from '../../context/ThemeContext'
-import SearchableSelect from '../../components/ui/SearchableSelect'
-
-// Funktion zum Formatieren von Datum und Zeit für HTML-Inputfelder
-const formatDateTimeForInput = (dateString) => {
-  if (!dateString) return ''
-  const date = new Date(dateString)
-  return date.toISOString().slice(0, 16) // Format: "YYYY-MM-DDThh:mm"
-}
-
-// Funktion zur Berechnung der Dauer in Minuten zwischen zwei Datumswerten
-const calculateDurationInMinutes = (startTime, endTime) => {
-  if (!startTime || !endTime) return 0;
-  
-  const start = new Date(startTime);
-  const end = new Date(endTime);
-  
-  if (end <= start) return 0;
-  
-  // Differenz in Millisekunden und Umrechnung in Minuten
-  const diffMs = end - start;
-  return Math.round(diffMs / 60000); // 60000 ms = 1 Minute
-}
+// src/pages/time/TimeTrackingForm.jsx - Mit Abrechnungsanpassungen
+import { useState, useEffect } from 'react';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
+import { toast } from 'react-toastify';
+import { Formik, Form, Field, ErrorMessage } from 'formik';
+import * as Yup from 'yup';
+import { format } from 'date-fns';
+import { createTimeTracking, getTimeTracking, updateTimeTracking } from '../../services/timeTrackingService';
+import { getOrders } from '../../services/orderService';
+import { getUsers } from '../../services/authService';
+import { getSystemSettings } from '../../services/systemSettingsService';
+import { ArrowLeftIcon } from '@heroicons/react/outline';
+import { useTheme } from '../../context/ThemeContext';
+import { useAuth } from '../../context/AuthContext';
+import SearchableSelect from '../../components/ui/SearchableSelect';
 
 const TimeTrackingSchema = Yup.object().shape({
   description: Yup.string().required('Beschreibung ist erforderlich'),
   startTime: Yup.date().required('Startzeit ist erforderlich'),
   endTime: Yup.date()
     .required('Endzeit ist erforderlich')
-    .test('is-after-startTime', 'Endzeit muss nach Startzeit liegen', function (value) {
-      const { startTime } = this.parent
-      return !startTime || !value || new Date(value) > new Date(startTime)
-    })
-})
+    .min(
+      Yup.ref('startTime'),
+      'Endzeit muss nach der Startzeit liegen'
+    ),
+  hourlyRate: Yup.number()
+    .min(0, 'Stundensatz kann nicht negativ sein')
+    .required('Stundensatz ist erforderlich')
+});
 
 const TimeTrackingForm = () => {
-  const { id } = useParams()
-  const navigate = useNavigate()
-  const location = useLocation()
-  const queryParams = new URLSearchParams(location.search)
-  const orderId = queryParams.get('orderId')
-  const { isDarkMode } = useTheme()
+  const { id } = useParams();
+  const navigate = useNavigate();
+  const location = useLocation();
+  const queryParams = new URLSearchParams(location.search);
+  const orderId = queryParams.get('orderId');
+  const { isDarkMode } = useTheme();
+  const { user } = useAuth();
 
-  const [orders, setOrders] = useState([])
-  const [users, setUsers] = useState([]) // Benutzer für Zuweisung
+  const [orders, setOrders] = useState([]);
+  const [users, setUsers] = useState([]);
+  const [loading, setLoading] = useState(id ? true : false);
+  const [selectedOrder, setSelectedOrder] = useState(null);
+  const [billingSettings, setBillingSettings] = useState({
+    hourlyRate: 100,
+    billingInterval: 15,
+  });
+
   const [initialValues, setInitialValues] = useState({
-    order: orderId || '',
     description: '',
-    assignedTo: '', // Neu: Feld für zugewiesene Benutzer
-    startTime: formatDateTimeForInput(new Date()),
-    endTime: formatDateTimeForInput(new Date(Date.now() + 60 * 60 * 1000)) // Standard: 1 Stunde später
-  })
-  const [loading, setLoading] = useState(id ? true : false)
-  const [ordersLoading, setOrdersLoading] = useState(true)
-  const [usersLoading, setUsersLoading] = useState(true)
+    startTime: new Date().toISOString().slice(0, 16),
+    endTime: new Date().toISOString().slice(0, 16),
+    order: orderId || '',
+    assignedTo: user?.id || '',
+    hourlyRate: 100,
+    billed: false
+  });
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        // Aufträge und zuweisbare Benutzer parallel laden
-        const [ordersResponse, usersResponse] = await Promise.all([
+        // Lade Aufträge und Benutzer
+        const [ordersResponse, usersResponse, settingsResponse] = await Promise.all([
           getOrders(),
-          getAssignableUsers()
+          getUsers(),
+          getSystemSettings()
         ]);
         
         setOrders(ordersResponse.data.data);
-        setOrdersLoading(false);
-        
         setUsers(usersResponse.data.data);
-        setUsersLoading(false);
+        
+        // Abrechnungseinstellungen laden
+        if (settingsResponse.data.success) {
+          const settings = settingsResponse.data.data;
+          setBillingSettings({
+            hourlyRate: settings.hourlyRate || 100,
+            billingInterval: settings.billingInterval || 15,
+          });
+          
+          // Stundensatz in initialValues setzen
+          setInitialValues(prev => ({
+            ...prev,
+            hourlyRate: settings.hourlyRate || 100
+          }));
+        }
       } catch (error) {
+        console.error('Fehler beim Laden der Daten:', error);
         toast.error('Fehler beim Laden der Daten');
-        setOrdersLoading(false);
-        setUsersLoading(false);
       }
     };
 
-    const fetchTimeTracking = async () => {
-      if (id) {
+    fetchData();
+
+    if (id) {
+      const fetchTimeTracking = async () => {
         try {
-          const response = await getTimeTracking(id)
-          const timeTracking = response.data.data
+          const response = await getTimeTracking(id);
+          const timeEntry = response.data.data;
+          
+          // Formatiere Datumsfelder für das Formular
+          const formatDateForInput = (dateString) => {
+            if (!dateString) return '';
+            return new Date(dateString).toISOString().slice(0, 16);
+          };
           
           setInitialValues({
-            order: timeTracking.order?._id || timeTracking.order || '',
-            description: timeTracking.description || '',
-            assignedTo: timeTracking.assignedTo?._id || timeTracking.assignedTo || '', // Zugewiesener Benutzer
-            startTime: formatDateTimeForInput(timeTracking.startTime),
-            endTime: formatDateTimeForInput(timeTracking.endTime)
-          })
-          setLoading(false)
+            description: timeEntry.description || '',
+            startTime: formatDateForInput(timeEntry.startTime),
+            endTime: formatDateForInput(timeEntry.endTime),
+            order: timeEntry.order || '',
+            assignedTo: timeEntry.assignedTo || user?.id || '',
+            hourlyRate: timeEntry.hourlyRate || billingSettings.hourlyRate,
+            billed: timeEntry.billed || false
+          });
+          
+          if (timeEntry.order) {
+            const orderResponse = await getOrders({ id: timeEntry.order });
+            if (orderResponse.data.data.length > 0) {
+              setSelectedOrder(orderResponse.data.data[0]);
+            }
+          }
+          
+          setLoading(false);
         } catch (error) {
-          toast.error('Zeiteintrag konnte nicht geladen werden')
-          navigate('/time-tracking')
+          console.error('Fehler beim Laden des Zeiteintrags:', error);
+          toast.error('Fehler beim Laden des Zeiteintrags');
+          navigate('/time-tracking');
         }
-      }
-    }
+      };
 
-    fetchData()
-    fetchTimeTracking()
-  }, [id, navigate])
+      fetchTimeTracking();
+    } else {
+      setLoading(false);
+    }
+  }, [id, navigate, orderId, user?.id]);
+
+  // Hilfsfunktion zum Berechnen des abrechenbaren Betrags
+  const calculateBillableAmount = (startTime, endTime, hourlyRate) => {
+    // Tatsächliche Dauer in Minuten berechnen
+    const start = new Date(startTime);
+    const end = new Date(endTime);
+    const durationInMinutes = Math.round((end - start) / (1000 * 60));
+    
+    if (durationInMinutes <= 0) return { duration: 0, billableDuration: 0, amount: 0 };
+    
+    // Abrechnungsintervall anwenden
+    const billableDuration = roundToInterval(durationInMinutes, billingSettings.billingInterval);
+    
+    // Betrag berechnen: (abrechenbare Minuten / 60) * Stundensatz
+    const amount = (billableDuration / 60) * hourlyRate;
+    
+    return {
+      duration: durationInMinutes,
+      billableDuration,
+      amount
+    };
+  };
+  
+  // Hilfsfunktion zum Aufrunden auf ein bestimmtes Intervall
+  const roundToInterval = (minutes, interval) => {
+    if (interval <= 0) return minutes;
+    
+    // Anzahl an vollen Intervallen
+    const fullIntervals = Math.floor(minutes / interval);
+    
+    // Wenn es einen Rest gibt, runde auf das nächste volle Intervall auf
+    if (minutes % interval > 0) {
+      return (fullIntervals + 1) * interval;
+    }
+    
+    return fullIntervals * interval;
+  };
+
+  const formatDuration = (minutes) => {
+    if (!minutes) return '-';
+    const hours = Math.floor(minutes / 60);
+    const mins = minutes % 60;
+    return `${hours}h ${mins}min`;
+  };
+
+  const formatCurrency = (amount) => {
+    if (amount === undefined || amount === null) return '-';
+    return new Intl.NumberFormat('de-DE', {
+      style: 'currency',
+      currency: 'EUR'
+    }).format(amount);
+  };
 
   const handleSubmit = async (values, { setSubmitting }) => {
     try {
-      // Berechne die Dauer in Minuten
-      const duration = calculateDurationInMinutes(values.startTime, values.endTime);
+      // Berechne die abrechenbare Dauer und den Betrag
+      const { duration, billableDuration, amount } = calculateBillableAmount(
+        values.startTime, 
+        values.endTime, 
+        values.hourlyRate
+      );
       
-      // Füge die berechnete Dauer zum values-Objekt hinzu
       const timeTrackingData = {
         ...values,
-        duration: duration
+        // Zusätzliche Felder für die Abrechnung
+        duration,
+        billableDuration,
+        amount
       };
       
       if (id) {
-        await updateTimeTracking(id, timeTrackingData)
-        toast.success('Zeiteintrag erfolgreich aktualisiert')
+        await updateTimeTracking(id, timeTrackingData);
+        toast.success('Zeiteintrag erfolgreich aktualisiert');
       } else {
-        await createTimeTracking(timeTrackingData)
-        toast.success('Zeiteintrag erfolgreich erstellt')
+        await createTimeTracking(timeTrackingData);
+        toast.success('Zeiteintrag erfolgreich erstellt');
       }
-      navigate('/time-tracking')
+      navigate('/time-tracking');
     } catch (error) {
-      toast.error(`Fehler beim ${id ? 'Aktualisieren' : 'Erstellen'} des Zeiteintrags`)
+      console.error('Fehler beim Speichern:', error);
+      toast.error(`Fehler beim ${id ? 'Aktualisieren' : 'Erstellen'} des Zeiteintrags`);
     } finally {
-      setSubmitting(false)
+      setSubmitting(false);
     }
-  }
+  };
 
-  // Formatiere die Aufträge für das durchsuchbare Dropdown
   const orderOptions = orders.map(order => ({
     value: order._id,
-    label: `${order.orderNumber} - ${order.description.substring(0, 40)}${order.description.length > 40 ? '...' : ''}`
+    label: `${order.orderNumber}: ${order.description.substring(0, 50)}${order.description.length > 50 ? '...' : ''}`
   }));
 
-  // Formatiere die Benutzer für das durchsuchbare Dropdown
   const userOptions = users.map(user => ({
     value: user._id,
-    label: `${user.name} (${user.email})`
+    label: user.name
   }));
 
-  if (loading || ordersLoading || usersLoading) {
+  if (loading) {
     return (
       <div className="text-center py-10">
         <div className="spinner"></div>
         <p className={`mt-2 ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>Daten werden geladen...</p>
       </div>
-    )
+    );
   }
 
   return (
@@ -180,152 +260,213 @@ const TimeTrackingForm = () => {
         onSubmit={handleSubmit}
         enableReinitialize
       >
-        {({ isSubmitting, values, errors, touched, setFieldValue }) => (
-          <Form className="space-y-6">
-            <div className="grid grid-cols-1 gap-y-6 gap-x-4 sm:grid-cols-6">
-              <div className="sm:col-span-3">
-                <label htmlFor="order" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                  Auftrag
-                </label>
-                <div className="mt-1">
-                  {/* Durchsuchbares Dropdown für Aufträge */}
-                  <SearchableSelect
-                    name="order"
-                    id="order"
-                    value={values.order}
-                    onChange={(e) => setFieldValue('order', e.target.value)}
-                    options={orderOptions}
-                    placeholder="Keinem Auftrag zuordnen"
-                    threshold={5} // Zeige Suche ab 5 Einträgen
-                  />
+        {({ isSubmitting, values, errors, touched, setFieldValue }) => {
+          // Berechne die abrechenbare Dauer bei jeder Änderung der relevanten Felder
+          const { duration, billableDuration, amount } = calculateBillableAmount(
+            values.startTime, 
+            values.endTime, 
+            values.hourlyRate
+          );
+          
+          return (
+            <Form className="space-y-6">
+              <div className="grid grid-cols-1 gap-y-6 gap-x-4 sm:grid-cols-6">
+                <div className="sm:col-span-6">
+                  <label htmlFor="description" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                    Beschreibung *
+                  </label>
+                  <div className="mt-1">
+                    <Field
+                      as="textarea"
+                      id="description"
+                      name="description"
+                      rows={3}
+                      className={`shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-md ${
+                        errors.description && touched.description ? 'border-red-300 dark:border-red-500' : ''
+                      }`}
+                    />
+                    <ErrorMessage name="description" component="div" className="mt-1 text-sm text-red-600 dark:text-red-400" />
+                  </div>
                 </div>
-              </div>
-              
-              <div className="sm:col-span-3">
-                <label htmlFor="assignedTo" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                  Zugewiesener Benutzer
-                </label>
-                <div className="mt-1">
-                  {/* Durchsuchbares Dropdown für Benutzer */}
-                  <SearchableSelect
-                    name="assignedTo"
-                    id="assignedTo"
-                    value={values.assignedTo}
-                    onChange={(e) => setFieldValue('assignedTo', e.target.value)}
-                    options={userOptions}
-                    placeholder="Keinem Benutzer zuweisen"
-                    threshold={5} // Zeige Suche ab 5 Einträgen
-                  />
-                </div>
-                <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                  Wählen Sie einen Benutzer aus, der diese Arbeitszeit durchgeführt hat.
-                </p>
-              </div>
 
-              <div className="sm:col-span-6">
-                <label htmlFor="description" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                  Beschreibung *
-                </label>
-                <div className="mt-1">
-                  <Field
-                    as="textarea"
-                    name="description"
-                    id="description"
-                    rows={6}
-                    className={`shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-md notes-textarea notes-input ${
-                      errors.description && touched.description ? 'border-red-300 dark:border-red-500' : ''
-                    }`}
-                    placeholder="Beschreiben Sie hier die durchgeführten Tätigkeiten. Stichpunkte und Zeilenumbrüche bleiben erhalten."
-                  />
-                  <ErrorMessage name="description" component="div" className="mt-1 text-sm text-red-600 dark:text-red-400" />
+                <div className="sm:col-span-3">
+                  <label htmlFor="startTime" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                    Startzeit *
+                  </label>
+                  <div className="mt-1">
+                    <Field
+                      type="datetime-local"
+                      name="startTime"
+                      id="startTime"
+                      className={`shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-md ${
+                        errors.startTime && touched.startTime ? 'border-red-300 dark:border-red-500' : ''
+                      }`}
+                    />
+                    <ErrorMessage name="startTime" component="div" className="mt-1 text-sm text-red-600 dark:text-red-400" />
+                  </div>
                 </div>
-                <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                  Bitte beschreiben Sie Ihre Tätigkeiten detailliert. Listen Sie einzelne Schritte gerne mit Aufzählungszeichen auf.
-                  Der Text wird genau so angezeigt, wie Sie ihn eingeben, einschließlich Zeilenumbrüchen.
-                </p>
-              </div>
 
-              <div className="sm:col-span-3">
-                <label htmlFor="startTime" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                  Startzeit *
-                </label>
-                <div className="mt-1">
-                  <Field
-                    type="datetime-local"
-                    name="startTime"
-                    id="startTime"
-                    className={`shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-md ${
-                      errors.startTime && touched.startTime ? 'border-red-300 dark:border-red-500' : ''
-                    }`}
-                  />
-                  <ErrorMessage name="startTime" component="div" className="mt-1 text-sm text-red-600 dark:text-red-400" />
+                <div className="sm:col-span-3">
+                  <label htmlFor="endTime" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                    Endzeit *
+                  </label>
+                  <div className="mt-1">
+                    <Field
+                      type="datetime-local"
+                      name="endTime"
+                      id="endTime"
+                      className={`shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-md ${
+                        errors.endTime && touched.endTime ? 'border-red-300 dark:border-red-500' : ''
+                      }`}
+                    />
+                    <ErrorMessage name="endTime" component="div" className="mt-1 text-sm text-red-600 dark:text-red-400" />
+                  </div>
                 </div>
-              </div>
 
-              <div className="sm:col-span-3">
-                <label htmlFor="endTime" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                  Endzeit *
-                </label>
-                <div className="mt-1">
-                  <Field
-                    type="datetime-local"
-                    name="endTime"
-                    id="endTime"
-                    className={`shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-md ${
-                      errors.endTime && touched.endTime ? 'border-red-300 dark:border-red-500' : ''
-                    }`}
-                  />
-                  <ErrorMessage name="endTime" component="div" className="mt-1 text-sm text-red-600 dark:text-red-400" />
+                <div className="sm:col-span-3">
+                  <label htmlFor="order" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                    Auftrag
+                  </label>
+                  <div className="mt-1">
+                    <SearchableSelect
+                      name="order"
+                      id="order"
+                      value={values.order}
+                      onChange={(e) => {
+                        const orderId = e.target.value;
+                        setFieldValue('order', orderId);
+                        
+                        // Finde den ausgewählten Auftrag für zusätzliche Informationen
+                        const selectedOrder = orders.find(order => order._id === orderId);
+                        setSelectedOrder(selectedOrder);
+                      }}
+                      options={orderOptions}
+                      placeholder="Keinen Auftrag zuordnen"
+                    />
+                  </div>
                 </div>
-              </div>
 
-              {values.startTime && values.endTime && (() => {
-                try {
-                  const start = new Date(values.startTime);
-                  const end = new Date(values.endTime);
-                  if (end > start) {
-                    const diffMs = end - start;
-                    const diffMins = Math.floor(diffMs / 60000);
-                    const hours = Math.floor(diffMins / 60);
-                    const mins = diffMins % 60;
+                <div className="sm:col-span-3">
+                  <label htmlFor="assignedTo" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                    Bearbeiter
+                  </label>
+                  <div className="mt-1">
+                    <SearchableSelect
+                      name="assignedTo"
+                      id="assignedTo"
+                      value={values.assignedTo}
+                      onChange={(e) => setFieldValue('assignedTo', e.target.value)}
+                      options={userOptions}
+                      placeholder="Benutzer auswählen"
+                    />
+                  </div>
+                </div>
+                
+                <div className="sm:col-span-3">
+                  <label htmlFor="hourlyRate" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                    Stundensatz (€) *
+                  </label>
+                  <div className="mt-1">
+                    <Field
+                      type="number"
+                      name="hourlyRate"
+                      id="hourlyRate"
+                      min="0"
+                      step="0.01"
+                      className={`shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-md ${
+                        errors.hourlyRate && touched.hourlyRate ? 'border-red-300 dark:border-red-500' : ''
+                      }`}
+                    />
+                    <ErrorMessage name="hourlyRate" component="div" className="mt-1 text-sm text-red-600 dark:text-red-400" />
+                  </div>
+                  <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                    Standardstundensatz: {billingSettings.hourlyRate} €/h
+                  </p>
+                </div>
+                
+                <div className="sm:col-span-6">
+                  <div className={`p-4 rounded-md ${isDarkMode ? 'bg-gray-700' : 'bg-gray-50'}`}>
+                    <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">Abrechnungsinformationen</h3>
                     
-                    return (
-                      <div className="sm:col-span-6">
-                        <div className="mt-1 text-sm text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 p-3 rounded">
-                          <strong>Berechnete Dauer:</strong> {hours}h {mins}min ({diffMins} Minuten)
-                        </div>
+                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                      <div>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">Tatsächliche Dauer:</p>
+                        <p className="text-sm font-medium text-gray-900 dark:text-white">
+                          {formatDuration(duration)}
+                        </p>
                       </div>
-                    );
-                  }
-                } catch (error) {
-                  return null;
-                }
-              })()}
-            </div>
-
-            <div className="pt-5">
-              <div className="flex justify-end">
-                <button
-                  type="button"
-                  onClick={() => navigate(-1)}
-                  className="bg-white dark:bg-gray-700 py-2 px-4 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 dark:focus:ring-offset-gray-800"
-                >
-                  Abbrechen
-                </button>
-                <button
-                  type="submit"
-                  disabled={isSubmitting}
-                  className="ml-3 inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 dark:bg-blue-700 dark:hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 dark:focus:ring-offset-gray-800 disabled:opacity-50"
-                >
-                  {isSubmitting ? 'Wird gespeichert...' : id ? 'Aktualisieren' : 'Erstellen'}
-                </button>
+                      
+                      <div>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">
+                          Abrechenbare Dauer (je {billingSettings.billingInterval} min):
+                        </p>
+                        <p className="text-sm font-medium text-gray-900 dark:text-white">
+                          {formatDuration(billableDuration)}
+                        </p>
+                      </div>
+                      
+                      <div>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">Abrechenbarer Betrag:</p>
+                        <p className="text-sm font-medium text-gray-900 dark:text-white">
+                          {formatCurrency(amount)}
+                        </p>
+                      </div>
+                    </div>
+                    
+                    <p className="mt-3 text-xs text-gray-500 dark:text-gray-400">
+                      Hinweis: Jede angefangene {billingSettings.billingInterval} Minuten werden voll berechnet.
+                    </p>
+                  </div>
+                </div>
+                
+                <div className="sm:col-span-3">
+                  <div className="relative flex items-start">
+                    <div className="flex items-center h-5">
+                      <Field
+                        type="checkbox"
+                        name="billed"
+                        id="billed"
+                        className={`focus:ring-blue-500 h-4 w-4 text-blue-600 ${
+                          isDarkMode ? 'bg-gray-700 border-gray-600' : 'border-gray-300'
+                        } rounded`}
+                      />
+                    </div>
+                    <div className="ml-3 text-sm">
+                      <label htmlFor="billed" className={`font-medium ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                        Bereits abgerechnet
+                      </label>
+                      <p className={`${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                        Dieser Zeiteintrag wird in den unbezahlten Stunden nicht mehr angezeigt.
+                      </p>
+                    </div>
+                  </div>
+                </div>
               </div>
-            </div>
-          </Form>
-        )}
+
+              <div className="pt-5">
+                <div className="flex justify-end">
+                  <button
+                    type="button"
+                    onClick={() => navigate(-1)}
+                    className="bg-white dark:bg-gray-700 py-2 px-4 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 dark:focus:ring-offset-gray-800"
+                  >
+                    Abbrechen
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isSubmitting}
+                    className="ml-3 inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 dark:bg-blue-700 dark:hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 dark:focus:ring-offset-gray-800 disabled:opacity-50"
+                  >
+                    {isSubmitting ? 'Wird gespeichert...' : id ? 'Aktualisieren' : 'Speichern'}
+                  </button>
+                </div>
+              </div>
+            </Form>
+          )
+        }}
       </Formik>
     </div>
-  )
-}
+  );
+};
 
-export default TimeTrackingForm
+export default TimeTrackingForm;
