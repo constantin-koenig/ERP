@@ -18,25 +18,6 @@ exports.getCustomers = async (req, res) => {
       customersCount: customers.length
     });
     
-    // Füge einen Business-Event-Log hinzu für die Übersichtsseite
-    await SystemLog.logInfo(
-      `Kundenliste abgerufen (${customers.length} Kunden)`,
-      req.user.id,
-      req.user.name,
-      { 
-        count: customers.length,
-        userRole: req.user.role,
-        timestamp: new Date().toISOString()
-      },
-      'business_event',
-      req.ip,
-      {
-        module: 'customers',
-        action: 'list',
-        entity: 'customer'
-      }
-    );
-
     res.status(200).json({
       success: true,
       count: customers.length,

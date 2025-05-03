@@ -1,144 +1,6 @@
-// @desc    Auftrag löschen
-// @route   DELETE /api/orders/:id
-// @access  Private
-exports.deleteOrder = async (req, res) => {
-  try {
-    const order = await Order.findById(req.params.id);
-
-    if (!order) {
-      logger.warn(`Versuch, nicht existierenden Auftrag zu löschen: ID ${req.params.id}`, {
-        userId: req.user.id,
-        orderId: req.params.id
-      });
-      
-      await SystemLog.logWarning(
-        `Versuch, nicht existierenden Auftrag zu löschen: ID ${req.params.id}`,
-        req.user.id,
-        req.user.name,
-        { requestedId: req.params.id },
-        'data_operation',
-        req.ip,
-        {
-          module: 'orders',
-          action: 'delete',
-          entity: 'order'
-        }
-      );
-      
-      return res.status(404).json({
-        success: false,
-        message: 'Auftrag nicht gefunden'
-      });
-    }
-
-    // Zugriffsberechtigungen prüfen
-    if (order.createdBy.toString() !== req.user.id && req.user.role !== 'admin') {
-      logger.warn(`Nicht autorisierter Löschversuch für Auftrag ${order.orderNumber} von Benutzer ${req.user.name}`, {
-        userId: req.user.id,
-        orderId: order._id,
-        orderNumber: order.orderNumber
-      });
-      
-      await SystemLog.logWarning(
-        `Nicht autorisierter Löschversuch für Auftrag: ID ${req.params.id}`,
-        req.user.id,
-        req.user.name,
-        { 
-          orderId: order._id,
-          orderNumber: order.orderNumber,
-          ownerUserId: order.createdBy
-        },
-        'authorization',
-        req.ip,
-        {
-          module: 'orders',
-          action: 'delete',
-          entity: 'order',
-          entityId: order._id
-        }
-      );
-      
-      return res.status(403).json({
-        success: false,
-        message: 'Sie haben keine Berechtigung, diesen Auftrag zu löschen'
-      });
-    }
-
-    // Auftragsdaten für die Protokollierung speichern
-    const orderDetails = {
-      orderId: order._id,
-      orderNumber: order.orderNumber,
-      customer: order.customer,
-      description: order.description,
-      totalAmount: order.totalAmount,
-      status: order.status,
-      assignedTo: order.assignedTo
-    };
-
-    // Delete - In neueren Mongoose-Versionen ist remove() veraltet
-    await order.deleteOne();
-
-    // Erfolgreiche Auftragslöschung loggen
-    logger.info(`Auftrag ${order.orderNumber} von Benutzer ${req.user.name} gelöscht`, {
-      userId: req.user.id,
-      orderId: order._id,
-      orderNumber: order.orderNumber,
-      customer: order.customer.toString(),
-      status: order.status
-    });
-    
-    await SystemLog.logInfo(
-      `Auftrag ${order.orderNumber} gelöscht`,
-      req.user.id,
-      req.user.name,
-      orderDetails,
-      'data_operation',
-      req.ip,
-      {
-        module: 'orders',
-        action: 'delete',
-        entity: 'order',
-        entityId: order._id
-      }
-    );
-
-    res.status(200).json({
-      success: true,
-      data: {}
-    });
-  } catch (error) {
-    logger.error(`Fehler beim Löschen des Auftrags ${req.params.id}: ${error.message}`, {
-      error: error.stack,
-      userId: req.user.id,
-      orderId: req.params.id
-    });
-    
-    // Fehler loggen
-    await SystemLog.logError(
-      `Fehler beim Löschen des Auftrags mit ID ${req.params.id}: ${error.message}`,
-      req.user.id,
-      req.user.name,
-      { 
-        error: error.stack,
-        orderId: req.params.id
-      },
-      'data_operation',
-      req.ip,
-      {
-        module: 'orders',
-        action: 'delete',
-        entity: 'order',
-        entityId: req.params.id
-      }
-    );
-    
-    res.status(500).json({
-      success: false,
-      message: 'Serverfehler beim Löschen des Auftrags'
-    });
-  }
-};// backend/controllers/orderController.js (mit erweitertem Logging)
+// backend/controllers/orderController.js (mit erweitertem Logging)
 const Order = require('../models/Order');
+const Customer = require('../models/Customer');
 const User = require('../models/User');
 const { validationResult } = require('express-validator');
 const { createLog } = require('../middleware/logger');
@@ -182,12 +44,6 @@ exports.getOrders = async (req, res) => {
       .populate('customer', 'name')
       .populate('assignedTo', 'name email');
 
-    logger.debug(`${orders.length} Aufträge für Benutzer ${req.user.name} abgerufen`, {
-      userId: req.user.id,
-      filter,
-      sort
-    });
-
     res.status(200).json({
       success: true,
       count: orders.length,
@@ -205,7 +61,7 @@ exports.getOrders = async (req, res) => {
       req.user.id,
       req.user.name,
       { error: error.stack },
-      'data_access',
+      'data_access_error',
       req.ip,
       {
         module: 'orders',
@@ -231,6 +87,7 @@ exports.getOrder = async (req, res) => {
       .populate('assignedTo', 'name email phone');
 
     if (!order) {
+      // Nicht existierenden Auftrag loggen
       logger.warn(`Zugriff auf nicht existierenden Auftrag versucht: ID ${req.params.id}`, {
         userId: req.user.id,
         orderId: req.params.id
@@ -241,7 +98,7 @@ exports.getOrder = async (req, res) => {
         req.user.id,
         req.user.name,
         { requestedId: req.params.id },
-        'data_access',
+        'data_access_warning',
         req.ip,
         {
           module: 'orders',
@@ -256,11 +113,12 @@ exports.getOrder = async (req, res) => {
       });
     }
 
-    // Stellen Sie sicher, dass der Benutzer der Eigentümer ist
+    // Zugriffsberechtigungen prüfen - Auftragsersteller, zugewiesene Person oder Admin dürfen zugreifen
     if (order.createdBy.toString() !== req.user.id && 
         order.assignedTo?.toString() !== req.user.id && 
         req.user.role !== 'admin') {
       
+      // Nicht autorisierten Zugriff loggen
       logger.warn(`Nicht autorisierter Zugriff auf Auftrag: ID ${req.params.id}`, {
         userId: req.user.id,
         orderId: order._id,
@@ -277,7 +135,7 @@ exports.getOrder = async (req, res) => {
           ownerUserId: order.createdBy,
           assignedUserId: order.assignedTo
         },
-        'authorization',
+        'authorization_warning',
         req.ip,
         {
           module: 'orders',
@@ -293,15 +151,39 @@ exports.getOrder = async (req, res) => {
       });
     }
 
-    // Erfolgreichen Zugriff loggen
-    logger.debug(`Auftrag ${order.orderNumber} von Benutzer ${req.user.name} abgerufen`, {
+    // Erfolgreichen Zugriff loggen (Info-Level für wichtigere Details-Ansichten)
+    logger.info(`Auftrag ${order.orderNumber} von Benutzer ${req.user.name} abgerufen`, {
       userId: req.user.id,
       orderId: order._id,
-      orderNumber: order.orderNumber
+      orderNumber: order.orderNumber,
+      status: order.status
     });
     
-    // Für häufige Abrufe keinen Datenbank-Log erstellen, um Überfüllung zu vermeiden
-    // Bei Bedarf kann hier ein SystemLog.logInfo hinzugefügt werden
+    // SystemLog für Auftragsdetails
+    await SystemLog.logInfo(
+      `Auftragsdetails abgerufen: ${order.orderNumber}`,
+      req.user.id,
+      req.user.name,
+      { 
+        orderId: order._id,
+        orderNumber: order.orderNumber,
+        description: order.description ? order.description.substring(0, 50) + (order.description.length > 50 ? '...' : '') : '',
+        customer: order.customer ? order.customer._id : null,
+        customerName: order.customer ? order.customer.name : null,
+        status: order.status,
+        assignedTo: order.assignedTo ? order.assignedTo._id : null,
+        assignedToName: order.assignedTo ? order.assignedTo.name : null,
+        timestamp: new Date().toISOString()
+      },
+      'business_event',
+      req.ip,
+      {
+        module: 'orders',
+        action: 'view',
+        entity: 'order',
+        entityId: order._id
+      }
+    );
 
     res.status(200).json({
       success: true,
@@ -320,7 +202,7 @@ exports.getOrder = async (req, res) => {
       req.user.id,
       req.user.name,
       { error: error.stack, orderId: req.params.id },
-      'data_access',
+      'data_access_error',
       req.ip,
       {
         module: 'orders',
@@ -343,6 +225,7 @@ exports.getOrder = async (req, res) => {
 exports.createOrder = async (req, res) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
+    // Validierungsfehler loggen
     logger.warn(`Validierungsfehler beim Erstellen eines Auftrags durch Benutzer ${req.user.name}`, {
       userId: req.user.id,
       validationErrors: errors.array(),
@@ -354,7 +237,7 @@ exports.createOrder = async (req, res) => {
       req.user.id,
       req.user.name,
       { validationErrors: errors.array() },
-      'validation',
+      'validation_error',
       req.ip,
       {
         module: 'orders',
@@ -387,10 +270,42 @@ exports.createOrder = async (req, res) => {
       req.body.assignedTo = null;
     }
     
+    // Prüfe, ob der Kunde existiert
+    if (req.body.customer) {
+      const customer = await Customer.findById(req.body.customer);
+      if (!customer) {
+        // Nicht existierenden Kunden loggen
+        logger.warn(`Versuch, Auftrag mit nicht existierendem Kunden zu erstellen: ID ${req.body.customer}`, {
+          userId: req.user.id,
+          customerId: req.body.customer
+        });
+        
+        await SystemLog.logWarning(
+          `Versuch, Auftrag mit nicht existierendem Kunden zu erstellen: ID ${req.body.customer}`,
+          req.user.id,
+          req.user.name,
+          { customerId: req.body.customer },
+          'validation_error',
+          req.ip,
+          {
+            module: 'orders',
+            action: 'create',
+            entity: 'order'
+          }
+        );
+        
+        return res.status(404).json({
+          success: false,
+          message: 'Der angegebene Kunde wurde nicht gefunden'
+        });
+      }
+    }
+    
     // Prüfe, ob der zugewiesene Benutzer existiert - nur wenn einer angegeben wurde
     if (req.body.assignedTo) {
       const user = await User.findById(req.body.assignedTo);
       if (!user) {
+        // Nicht existierenden Benutzer für Zuweisung loggen
         logger.warn(`Versuch, Auftrag mit nicht existierendem Benutzer zu erstellen: ID ${req.body.assignedTo}`, {
           userId: req.user.id,
           assignedToUserId: req.body.assignedTo
@@ -401,7 +316,7 @@ exports.createOrder = async (req, res) => {
           req.user.id,
           req.user.name,
           { assignedToUserId: req.body.assignedTo },
-          'validation',
+          'validation_error',
           req.ip,
           {
             module: 'orders',
@@ -419,17 +334,38 @@ exports.createOrder = async (req, res) => {
     
     const order = await Order.create(req.body);
     
+    // Kundeninformationen für Logging abrufen
+    let customerName = "Kein Kunde";
+    if (order.customer) {
+      const customer = await Customer.findById(order.customer).select('name');
+      if (customer) {
+        customerName = customer.name;
+      }
+    }
+    
+    // Zugewiesenen Benutzer für Logging abrufen
+    let assignedToName = "Niemand";
+    if (order.assignedTo) {
+      const assignedUser = await User.findById(order.assignedTo).select('name');
+      if (assignedUser) {
+        assignedToName = assignedUser.name;
+      }
+    }
+    
     // Details für Logs
     const orderDetails = {
       orderId: order._id,
       orderNumber: order.orderNumber,
       customer: order.customer,
+      customerName,
       description: order.description,
       status: order.status,
       totalAmount: order.totalAmount,
       startDate: order.startDate,
       dueDate: order.dueDate,
-      assignedTo: order.assignedTo
+      assignedTo: order.assignedTo,
+      assignedToName,
+      itemsCount: order.items ? order.items.length : 0
     };
     
     // In Winston loggen
@@ -443,13 +379,13 @@ exports.createOrder = async (req, res) => {
       totalAmount: order.totalAmount
     });
     
-    // Erfolgreiche Auftragserstellung loggen
+    // Erfolgreiche Auftragserstellung im SystemLog protokollieren
     await SystemLog.logInfo(
       `Neuer Auftrag erstellt: ${order.orderNumber}`,
       req.user.id,
       req.user.name,
       orderDetails,
-      'data_operation',
+      'business_event',
       req.ip,
       {
         module: 'orders',
@@ -488,7 +424,7 @@ exports.createOrder = async (req, res) => {
           items: req.body.items ? req.body.items.length : 0
         }
       },
-      'data_operation',
+      'data_operation_error',
       req.ip,
       {
         module: 'orders',
@@ -512,6 +448,7 @@ exports.updateOrder = async (req, res) => {
     let order = await Order.findById(req.params.id);
 
     if (!order) {
+      // Nicht existierenden Auftrag loggen
       logger.warn(`Versuch, nicht existierenden Auftrag zu aktualisieren: ID ${req.params.id}`, {
         userId: req.user.id,
         orderId: req.params.id
@@ -522,7 +459,7 @@ exports.updateOrder = async (req, res) => {
         req.user.id,
         req.user.name,
         { requestedId: req.params.id },
-        'data_operation',
+        'data_operation_warning',
         req.ip,
         {
           module: 'orders',
@@ -537,11 +474,13 @@ exports.updateOrder = async (req, res) => {
       });
     }
 
-    // Zugriffsberechtigungen prüfen
+    // Zugriffsberechtigungen prüfen - Ersteller oder Admin dürfen aktualisieren
+    // Zugewiesener Benutzer darf in der Regel nur bestimmte Felder aktualisieren (hier vereinfacht)
     if (order.createdBy.toString() !== req.user.id && 
         order.assignedTo?.toString() !== req.user.id && 
         req.user.role !== 'admin') {
       
+      // Nicht autorisierten Aktualisierungsversuch loggen
       logger.warn(`Nicht autorisierter Aktualisierungsversuch für Auftrag ${order.orderNumber} von Benutzer ${req.user.name}`, {
         userId: req.user.id,
         orderId: order._id,
@@ -557,7 +496,7 @@ exports.updateOrder = async (req, res) => {
           orderNumber: order.orderNumber,
           ownerUserId: order.createdBy
         },
-        'authorization',
+        'authorization_warning',
         req.ip,
         {
           module: 'orders',
@@ -578,10 +517,11 @@ exports.updateOrder = async (req, res) => {
       req.body.assignedTo = null;
     }
 
-    // Prüfe, ob der zugewiesene Benutzer existiert
+    // Prüfe, ob der zugewiesene Benutzer existiert (falls angegeben)
     if (req.body.assignedTo) {
       const user = await User.findById(req.body.assignedTo);
       if (!user) {
+        // Nicht existierenden Benutzer für Zuweisung loggen
         logger.warn(`Versuch, Auftrag mit nicht existierendem Benutzer zu aktualisieren: ID ${req.body.assignedTo}`, {
           userId: req.user.id,
           orderId: order._id,
@@ -598,7 +538,7 @@ exports.updateOrder = async (req, res) => {
             orderNumber: order.orderNumber,
             assignedToUserId: req.body.assignedTo
           },
-          'validation',
+          'validation_error',
           req.ip,
           {
             module: 'orders',
@@ -620,10 +560,10 @@ exports.updateOrder = async (req, res) => {
       status: order.status,
       description: order.description,
       customer: order.customer,
-      items: order.items,
+      items: [...order.items],
       totalAmount: order.totalAmount,
-      startDate: order.startDate,
-      dueDate: order.dueDate,
+      startDate: order.startDate ? order.startDate.toISOString() : null,
+      dueDate: order.dueDate ? order.dueDate.toISOString() : null,
       notes: order.notes,
       assignedTo: order.assignedTo
     };
@@ -664,7 +604,8 @@ exports.updateOrder = async (req, res) => {
           orderId: updatedOrder._id,
           orderNumber: updatedOrder.orderNumber,
           oldStatus: oldOrderData.status,
-          newStatus: updatedOrder.status
+          newStatus: updatedOrder.status,
+          timestamp: new Date().toISOString()
         },
         'status_change',
         req.ip,
@@ -681,10 +622,79 @@ exports.updateOrder = async (req, res) => {
           }
         }
       );
+      
+      // Bei Auftragsabschluss spezielle Meldung loggen
+      if (updatedOrder.status === 'abgeschlossen') {
+        logger.info(`Auftrag als abgeschlossen markiert: ${updatedOrder.orderNumber}`, {
+          userId: req.user.id,
+          orderId: updatedOrder._id,
+          orderNumber: updatedOrder.orderNumber,
+          customer: updatedOrder.customer ? updatedOrder.customer.toString() : null
+        });
+        
+        await SystemLog.logInfo(
+          `Auftrag als abgeschlossen markiert: ${updatedOrder.orderNumber}`,
+          req.user.id,
+          req.user.name,
+          { 
+            orderId: updatedOrder._id,
+            orderNumber: updatedOrder.orderNumber,
+            totalAmount: updatedOrder.totalAmount,
+            customer: updatedOrder.customer,
+            timestamp: new Date().toISOString()
+          },
+          'order_completed',
+          req.ip,
+          {
+            module: 'orders',
+            action: 'complete',
+            entity: 'order',
+            entityId: updatedOrder._id
+          }
+        );
+      }
+      
+      // Bei Stornierung spezielle Meldung loggen
+      if (updatedOrder.status === 'storniert') {
+        logger.info(`Auftrag storniert: ${updatedOrder.orderNumber}`, {
+          userId: req.user.id,
+          orderId: updatedOrder._id,
+          orderNumber: updatedOrder.orderNumber,
+          customer: updatedOrder.customer ? updatedOrder.customer.toString() : null
+        });
+        
+        await SystemLog.logInfo(
+          `Auftrag storniert: ${updatedOrder.orderNumber}`,
+          req.user.id,
+          req.user.name,
+          { 
+            orderId: updatedOrder._id,
+            orderNumber: updatedOrder.orderNumber,
+            totalAmount: updatedOrder.totalAmount,
+            customer: updatedOrder.customer,
+            timestamp: new Date().toISOString()
+          },
+          'order_cancelled',
+          req.ip,
+          {
+            module: 'orders',
+            action: 'cancel',
+            entity: 'order',
+            entityId: updatedOrder._id
+          }
+        );
+      }
     }
     
     // Zuweisung geändert?
     if (String(oldOrderData.assignedTo || '') !== String(updatedOrder.assignedTo || '')) {
+      // Zugewiesenen Benutzer-Namen für Logging abrufen
+      let newAssignedToName = "Niemand";
+      if (updatedOrder.assignedTo) {
+        const assignedUser = updatedOrder.assignedTo.name || "Unbekannter Benutzer";
+        newAssignedToName = assignedUser;
+      }
+      
       changes.assignedTo = {
         old: oldOrderData.assignedTo,
         new: updatedOrder.assignedTo
@@ -692,11 +702,11 @@ exports.updateOrder = async (req, res) => {
       
       let assignmentMessage;
       if (!oldOrderData.assignedTo && updatedOrder.assignedTo) {
-        assignmentMessage = `Auftrag ${updatedOrder.orderNumber} wurde ${updatedOrder.assignedTo.name} zugewiesen`;
+        assignmentMessage = `Auftrag ${updatedOrder.orderNumber} wurde ${newAssignedToName} zugewiesen`;
       } else if (oldOrderData.assignedTo && !updatedOrder.assignedTo) {
         assignmentMessage = `Zuständigkeit für Auftrag ${updatedOrder.orderNumber} wurde entfernt`;
       } else {
-        assignmentMessage = `Zuständigkeit für Auftrag ${updatedOrder.orderNumber} wurde geändert`;
+        assignmentMessage = `Zuständigkeit für Auftrag ${updatedOrder.orderNumber} wurde neu zugewiesen an ${newAssignedToName}`;
       }
       
       // Zuweisung separat loggen
@@ -717,7 +727,9 @@ exports.updateOrder = async (req, res) => {
           orderId: updatedOrder._id,
           orderNumber: updatedOrder.orderNumber,
           oldAssignee: oldOrderData.assignedTo,
-          newAssignee: updatedOrder.assignedTo
+          newAssignee: updatedOrder.assignedTo,
+          newAssigneeName: newAssignedToName,
+          timestamp: new Date().toISOString()
         },
         'assignment_change',
         req.ip,
@@ -737,17 +749,17 @@ exports.updateOrder = async (req, res) => {
     }
     
     // Termine geändert?
-    if (String(oldOrderData.startDate) !== String(updatedOrder.startDate)) {
+    if (oldOrderData.startDate !== (updatedOrder.startDate ? updatedOrder.startDate.toISOString() : null)) {
       changes.startDate = {
         old: oldOrderData.startDate,
-        new: updatedOrder.startDate
+        new: updatedOrder.startDate ? updatedOrder.startDate.toISOString() : null
       };
     }
     
-    if (String(oldOrderData.dueDate) !== String(updatedOrder.dueDate)) {
+    if (oldOrderData.dueDate !== (updatedOrder.dueDate ? updatedOrder.dueDate.toISOString() : null)) {
       changes.dueDate = {
         old: oldOrderData.dueDate,
-        new: updatedOrder.dueDate
+        new: updatedOrder.dueDate ? updatedOrder.dueDate.toISOString() : null
       };
     }
     
@@ -782,7 +794,7 @@ exports.updateOrder = async (req, res) => {
       };
     }
 
-    // Hauptlog für die Aktualisierung
+    // Hauptlog für die Aktualisierung mit Zusammenfassung der Änderungen
     const changesList = Object.keys(changes);
     let changeDescription = '';
     
@@ -805,9 +817,13 @@ exports.updateOrder = async (req, res) => {
       { 
         orderId: updatedOrder._id,
         orderNumber: updatedOrder.orderNumber,
-        changes
+        customer: updatedOrder.customer ? updatedOrder.customer.toString() : null,
+        customerName: updatedOrder.customer && updatedOrder.customer.name ? updatedOrder.customer.name : null,
+        changes,
+        changeDescription,
+        timestamp: new Date().toISOString()
       },
-      'data_operation',
+      'business_event',
       req.ip,
       {
         module: 'orders',
@@ -840,7 +856,7 @@ exports.updateOrder = async (req, res) => {
         orderId: req.params.id,
         updateData: req.body
       },
-      'data_operation',
+      'data_operation_error',
       req.ip,
       {
         module: 'orders',
@@ -867,6 +883,7 @@ exports.assignOrder = async (req, res) => {
     // Behandle verschiedene Fälle für userId
     // Fall 1: userId ist undefined oder nicht vorhanden 
     if (userId === undefined) {
+      // Fehlerhafte Zuweisung loggen
       logger.warn(`Fehlerhafte Zuweisung für Auftrag: fehlende userId`, {
         userId: req.user.id,
         orderId: req.params.id
@@ -877,7 +894,7 @@ exports.assignOrder = async (req, res) => {
         req.user.id,
         req.user.name,
         { orderId: req.params.id },
-        'validation',
+        'validation_error',
         req.ip,
         {
           module: 'orders',
@@ -902,6 +919,7 @@ exports.assignOrder = async (req, res) => {
     let order = await Order.findById(req.params.id);
 
     if (!order) {
+      // Nicht existierenden Auftrag loggen
       logger.warn(`Versuch, nicht existierenden Auftrag zuzuweisen: ID ${req.params.id}`, {
         userId: req.user.id,
         orderId: req.params.id
@@ -912,7 +930,7 @@ exports.assignOrder = async (req, res) => {
         req.user.id,
         req.user.name,
         { requestedId: req.params.id },
-        'data_operation',
+        'data_operation_warning',
         req.ip,
         {
           module: 'orders',
@@ -929,6 +947,7 @@ exports.assignOrder = async (req, res) => {
 
     // Zugriffsberechtigungen prüfen
     if (order.createdBy.toString() !== req.user.id && req.user.role !== 'admin') {
+      // Nicht autorisierten Zuweisungsversuch loggen
       logger.warn(`Nicht autorisierter Zuweisungsversuch für Auftrag ${order.orderNumber} von Benutzer ${req.user.name}`, {
         userId: req.user.id,
         orderId: order._id,
@@ -944,7 +963,7 @@ exports.assignOrder = async (req, res) => {
           orderNumber: order.orderNumber,
           ownerUserId: order.createdBy
         },
-        'authorization',
+        'authorization_warning',
         req.ip,
         {
           module: 'orders',
@@ -966,6 +985,7 @@ exports.assignOrder = async (req, res) => {
       // Prüfe, ob der zugewiesene Benutzer existiert
       const user = await User.findById(userId);
       if (!user) {
+        // Nicht existierenden Benutzer loggen
         logger.warn(`Versuch, Auftrag einem nicht existierenden Benutzer zuzuweisen: ID ${userId}`, {
           userId: req.user.id,
           orderId: order._id,
@@ -981,7 +1001,7 @@ exports.assignOrder = async (req, res) => {
             orderId: order._id,
             orderNumber: order.orderNumber
           },
-          'validation',
+          'validation_error',
           req.ip,
           {
             module: 'orders',
@@ -1053,7 +1073,9 @@ exports.assignOrder = async (req, res) => {
         orderId: order._id,
         orderNumber: order.orderNumber,
         oldAssignedTo,
-        newAssignedTo: userId
+        newAssignedTo: userId,
+        newAssigneeName: assignedUserName,
+        timestamp: new Date().toISOString()
       },
       'assignment',
       req.ip,
@@ -1094,7 +1116,7 @@ exports.assignOrder = async (req, res) => {
         orderId: req.params.id,
         userId: req.body.userId
       },
-      'data_operation',
+      'data_operation_error',
       req.ip,
       {
         module: 'orders',
@@ -1107,6 +1129,170 @@ exports.assignOrder = async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Serverfehler bei der Auftragszuweisung'
+    });
+  }
+};
+
+// @desc    Auftrag löschen
+// @route   DELETE /api/orders/:id
+// @access  Private
+exports.deleteOrder = async (req, res) => {
+  try {
+    const order = await Order.findById(req.params.id);
+
+    if (!order) {
+      // Nicht existierenden Auftrag loggen
+      logger.warn(`Versuch, nicht existierenden Auftrag zu löschen: ID ${req.params.id}`, {
+        userId: req.user.id,
+        orderId: req.params.id
+      });
+      
+      await SystemLog.logWarning(
+        `Versuch, nicht existierenden Auftrag zu löschen: ID ${req.params.id}`,
+        req.user.id,
+        req.user.name,
+        { requestedId: req.params.id },
+        'data_operation_warning',
+        req.ip,
+        {
+          module: 'orders',
+          action: 'delete',
+          entity: 'order'
+        }
+      );
+      
+      return res.status(404).json({
+        success: false,
+        message: 'Auftrag nicht gefunden'
+      });
+    }
+
+    // Zugriffsberechtigungen prüfen
+    if (order.createdBy.toString() !== req.user.id && req.user.role !== 'admin') {
+      // Nicht autorisierten Löschversuch loggen
+      logger.warn(`Nicht autorisierter Löschversuch für Auftrag ${order.orderNumber} von Benutzer ${req.user.name}`, {
+        userId: req.user.id,
+        orderId: order._id,
+        orderNumber: order.orderNumber
+      });
+      
+      await SystemLog.logWarning(
+        `Nicht autorisierter Löschversuch für Auftrag: ID ${req.params.id}`,
+        req.user.id,
+        req.user.name,
+        { 
+          orderId: order._id,
+          orderNumber: order.orderNumber,
+          ownerUserId: order.createdBy
+        },
+        'authorization_warning',
+        req.ip,
+        {
+          module: 'orders',
+          action: 'delete',
+          entity: 'order',
+          entityId: order._id
+        }
+      );
+      
+      return res.status(403).json({
+        success: false,
+        message: 'Sie haben keine Berechtigung, diesen Auftrag zu löschen'
+      });
+    }
+
+    // Kundeninformationen für Logging abrufen
+    let customerName = "Kein Kunde";
+    if (order.customer) {
+      const customer = await Customer.findById(order.customer).select('name');
+      if (customer) {
+        customerName = customer.name;
+      }
+    }
+    
+    // Zugewiesenen Benutzer für Logging abrufen
+    let assignedToName = "Niemand";
+    if (order.assignedTo) {
+      const assignedUser = await User.findById(order.assignedTo).select('name');
+      if (assignedUser) {
+        assignedToName = assignedUser.name;
+      }
+    }
+
+    // Auftragsdaten für die Protokollierung speichern
+    const orderDetails = {
+      orderId: order._id,
+      orderNumber: order.orderNumber,
+      customer: order.customer,
+      customerName,
+      description: order.description,
+      totalAmount: order.totalAmount,
+      status: order.status,
+      assignedTo: order.assignedTo,
+      assignedToName,
+      itemsCount: order.items ? order.items.length : 0
+    };
+
+    // Delete - In neueren Mongoose-Versionen ist remove() veraltet
+    await order.deleteOne();
+
+    // Erfolgreiche Auftragslöschung loggen
+    logger.info(`Auftrag ${order.orderNumber} von Benutzer ${req.user.name} gelöscht`, {
+      userId: req.user.id,
+      orderId: order._id,
+      orderNumber: order.orderNumber,
+      customer: order.customer ? order.customer.toString() : null,
+      status: order.status
+    });
+    
+    await SystemLog.logInfo(
+      `Auftrag ${order.orderNumber} gelöscht`,
+      req.user.id,
+      req.user.name,
+      orderDetails,
+      'business_event',
+      req.ip,
+      {
+        module: 'orders',
+        action: 'delete',
+        entity: 'order',
+        entityId: order._id
+      }
+    );
+
+    res.status(200).json({
+      success: true,
+      data: {}
+    });
+  } catch (error) {
+    logger.error(`Fehler beim Löschen des Auftrags ${req.params.id}: ${error.message}`, {
+      error: error.stack,
+      userId: req.user.id,
+      orderId: req.params.id
+    });
+    
+    // Fehler loggen
+    await SystemLog.logError(
+      `Fehler beim Löschen des Auftrags mit ID ${req.params.id}: ${error.message}`,
+      req.user.id,
+      req.user.name,
+      { 
+        error: error.stack,
+        orderId: req.params.id
+      },
+      'data_operation_error',
+      req.ip,
+      {
+        module: 'orders',
+        action: 'delete',
+        entity: 'order',
+        entityId: req.params.id
+      }
+    );
+    
+    res.status(500).json({
+      success: false,
+      message: 'Serverfehler beim Löschen des Auftrags'
     });
   }
 };

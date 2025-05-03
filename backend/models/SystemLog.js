@@ -50,16 +50,24 @@ const SystemLogSchema = new mongoose.Schema({
   },
   source: {
     type: String,
-    default: 'business_event', // Neuer Default-Wert für bessere Filterung!
+    default: 'business_event',
     enum: [
-      'business_event',      // Für Geschäftsereignisse
-      'user_action',         // Für Benutzeraktionen
-      'system_error',        // Für Systemfehler
-      'security_event',      // Für Sicherheitsereignisse
-      'data_operation',      // Für Datenoperationen
-      'admin_action',        // Für Admin-Aktionen
-      'system_startup',      // Für Systemstarts
-      'system_maintenance'   // Für Wartungsaufgaben
+      'business_event',      
+      'user_action',         
+      'system_error',        
+      'security_event',      
+      'data_operation',      
+      'admin_action',        
+      'system_startup',      
+      'system_maintenance',
+      'status_change',      // Add this
+      'assignment_change',  // Add this if used
+      'time_tracking',      // Add this if used
+      'validation',         // Add this if used
+      'authorization',      // Add this if used
+      'payment',            // Add this if used
+      'business_rule',      // Add this if used
+      'data_access'         // Add this if used
     ]
   },
   ipAddress: {

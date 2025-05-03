@@ -1,221 +1,8 @@
-// @desc    Rechnung löschen
-// @route   DELETE /api/invoices/:id
-// @access  Private
-exports.deleteInvoice = async (req, res) => {
-  try {
-    const invoice = await Invoice.findById(req.params.id);
-
-    if (!invoice) {
-      logger.warn(`Versuch, nicht existierende Rechnung zu löschen: ID ${req.params.id}`, {
-        userId: req.user.id,
-        invoiceId: req.params.id
-      });
-      
-      await SystemLog.logWarning(
-        `Versuch, nicht existierende Rechnung zu löschen: ID ${req.params.id}`,
-        req.user.id,
-        req.user.name,
-        { requestedId: req.params.id },
-        'data_operation',
-        req.ip,
-        {
-          module: 'invoices',
-          action: 'delete',
-          entity: 'invoice'
-        }
-      );
-      
-      return res.status(404).json({
-        success: false,
-        message: 'Rechnung nicht gefunden'
-      });
-    }
-
-    // Zugriffsberechtigungen prüfen
-    if (invoice.createdBy.toString() !== req.user.id && req.user.role !== 'admin') {
-      logger.warn(`Nicht autorisierter Löschversuch für Rechnung ${invoice.invoiceNumber} von Benutzer ${req.user.name}`, {
-        userId: req.user.id,
-        invoiceId: invoice._id,
-        invoiceNumber: invoice.invoiceNumber
-      });
-      
-      await SystemLog.logWarning(
-        `Nicht autorisierter Löschversuch für Rechnung: ID ${req.params.id}`,
-        req.user.id,
-        req.user.name,
-        { 
-          invoiceId: invoice._id,
-          invoiceNumber: invoice.invoiceNumber,
-          ownerUserId: invoice.createdBy
-        },
-        'authorization',
-        req.ip,
-        {
-          module: 'invoices',
-          action: 'delete',
-          entity: 'invoice',
-          entityId: invoice._id
-        }
-      );
-      
-      return res.status(403).json({
-        success: false,
-        message: 'Sie haben keine Berechtigung, diese Rechnung zu löschen'
-      });
-    }
-
-    // Prüfen, ob die Rechnung bereits bezahlt ist - in diesem Fall keine Löschung erlauben
-    if (invoice.status === 'bezahlt') {
-      logger.warn(`Versuch, eine bereits bezahlte Rechnung zu löschen: ${invoice.invoiceNumber}`, {
-        userId: req.user.id,
-        invoiceId: invoice._id,
-        invoiceNumber: invoice.invoiceNumber
-      });
-      
-      await SystemLog.logWarning(
-        `Versuch, eine bereits bezahlte Rechnung zu löschen: ${invoice.invoiceNumber}`,
-        req.user.id,
-        req.user.name,
-        { 
-          invoiceId: invoice._id,
-          invoiceNumber: invoice.invoiceNumber,
-          status: invoice.status
-        },
-        'business_rule',
-        req.ip,
-        {
-          module: 'invoices',
-          action: 'delete',
-          entity: 'invoice',
-          entityId: invoice._id
-        }
-      );
-      
-      return res.status(400).json({
-        success: false,
-        message: 'Bezahlte Rechnungen können nicht gelöscht werden. Bitte stornieren Sie die Rechnung stattdessen.'
-      });
-    }
-
-    // Rechnungsdetails für die Protokollierung speichern
-    const invoiceDetails = {
-      invoiceId: invoice._id,
-      invoiceNumber: invoice.invoiceNumber,
-      customer: invoice.customer,
-      order: invoice.order,
-      issueDate: invoice.issueDate,
-      totalAmount: invoice.totalAmount,
-      status: invoice.status
-    };
-
-    // Setze arbeitszeitbezogene Einträge als nicht abgerechnet
-    if (invoice.timeTracking && invoice.timeTracking.length > 0) {
-      await TimeTracking.updateMany(
-        { _id: { $in: invoice.timeTracking } },
-        { billed: false }
-      );
-      
-      // Änderung des Abrechnungsstatus loggen
-      logger.info(`${invoice.timeTracking.length} Zeiterfassungseinträge durch Rechnungslöschung als nicht abgerechnet markiert`, {
-        userId: req.user.id,
-        invoiceId: invoice._id,
-        invoiceNumber: invoice.invoiceNumber,
-        timeTrackingCount: invoice.timeTracking.length
-      });
-      
-      await SystemLog.logInfo(
-        `Zeiterfassungseinträge durch Rechnungslöschung als nicht abgerechnet markiert`,
-        req.user.id,
-        req.user.name,
-        { 
-          invoiceId: invoice._id,
-          invoiceNumber: invoice.invoiceNumber,
-          timeTrackingIds: invoice.timeTracking,
-          count: invoice.timeTracking.length
-        },
-        'time_tracking',
-        req.ip,
-        {
-          module: 'invoices',
-          action: 'delete',
-          entity: 'invoice',
-          entityId: invoice._id,
-          changes: {
-            timeTracking: {
-              billingStatus: 'unbilled',
-              count: invoice.timeTracking.length
-            }
-          }
-        }
-      );
-    }
-
-    // Rechnung löschen
-    await invoice.deleteOne();
-
-    // Erfolgreiche Rechnungslöschung loggen
-    logger.info(`Rechnung ${invoice.invoiceNumber} von Benutzer ${req.user.name} gelöscht, Betrag: ${invoice.totalAmount}`, {
-      userId: req.user.id,
-      invoiceId: invoice._id,
-      invoiceNumber: invoice.invoiceNumber,
-      customer: invoice.customer.toString(),
-      totalAmount: invoice.totalAmount
-    });
-    
-    await SystemLog.logInfo(
-      `Rechnung gelöscht: ${invoice.invoiceNumber}, Betrag: ${invoice.totalAmount}`,
-      req.user.id,
-      req.user.name,
-      invoiceDetails,
-      'data_operation',
-      req.ip,
-      {
-        module: 'invoices',
-        action: 'delete',
-        entity: 'invoice',
-        entityId: invoice._id
-      }
-    );
-
-    res.status(200).json({
-      success: true,
-      data: {}
-    });
-  } catch (error) {
-    logger.error(`Fehler beim Löschen der Rechnung ${req.params.id}: ${error.message}`, {
-      error: error.stack,
-      userId: req.user.id,
-      invoiceId: req.params.id
-    });
-    
-    // Fehler loggen
-    await SystemLog.logError(
-      `Fehler beim Löschen der Rechnung mit ID ${req.params.id}: ${error.message}`,
-      req.user.id,
-      req.user.name,
-      { 
-        error: error.stack,
-        invoiceId: req.params.id
-      },
-      'data_operation',
-      req.ip,
-      {
-        module: 'invoices',
-        action: 'delete',
-        entity: 'invoice',
-        entityId: req.params.id
-      }
-    );
-    
-    res.status(500).json({
-      success: false,
-      message: 'Serverfehler beim Löschen der Rechnung'
-    });
-  }
-};// backend/controllers/invoiceController.js (mit erweitertem Logging)
+// backend/controllers/invoiceController.js (mit erweitertem Logging)
 const Invoice = require('../models/Invoice');
 const TimeTracking = require('../models/TimeTracking');
 const Customer = require('../models/Customer');
+const Order = require('../models/Order');
 const { validationResult } = require('express-validator');
 const { createLog } = require('../middleware/logger');
 const { logger } = require('../middleware/logger');
@@ -292,13 +79,6 @@ exports.getInvoices = async (req, res) => {
       .populate('customer', 'name')
       .populate('order', 'orderNumber');
     
-    logger.debug(`${invoices.length} Rechnungen für Benutzer ${req.user.name} abgerufen`, {
-      userId: req.user.id,
-      filter,
-      sort,
-      page,
-      limit
-    });
 
     res.status(200).json({
       success: true,
@@ -327,7 +107,7 @@ exports.getInvoices = async (req, res) => {
         error: error.stack,
         filters: req.query
       },
-      'data_access',
+      'data_access_error',
       req.ip,
       {
         module: 'invoices',
@@ -360,6 +140,7 @@ exports.getInvoice = async (req, res) => {
       });
 
     if (!invoice) {
+      // Nicht gefundene Rechnung loggen
       logger.warn(`Versuch, auf nicht existierende Rechnung zuzugreifen: ID ${req.params.id}`, {
         userId: req.user.id,
         invoiceId: req.params.id
@@ -370,7 +151,7 @@ exports.getInvoice = async (req, res) => {
         req.user.id,
         req.user.name,
         { requestedId: req.params.id },
-        'data_access',
+        'data_access_warning',
         req.ip,
         {
           module: 'invoices',
@@ -387,6 +168,7 @@ exports.getInvoice = async (req, res) => {
 
     // Zugriffsberechtigungen prüfen
     if (invoice.createdBy.toString() !== req.user.id && req.user.role !== 'admin') {
+      // Nicht autorisierten Zugriff loggen
       logger.warn(`Nicht autorisierter Zugriff auf Rechnung ${invoice.invoiceNumber} von Benutzer ${req.user.name}`, {
         userId: req.user.id,
         invoiceId: invoice._id,
@@ -402,7 +184,7 @@ exports.getInvoice = async (req, res) => {
           invoiceNumber: invoice.invoiceNumber,
           ownerUserId: invoice.createdBy
         },
-        'authorization',
+        'authorization_warning',
         req.ip,
         {
           module: 'invoices',
@@ -418,12 +200,39 @@ exports.getInvoice = async (req, res) => {
       });
     }
 
-    // Erfolgreichen Zugriff nur bei Bedarf loggen, um Überfüllung zu vermeiden
-    logger.debug(`Rechnung ${invoice.invoiceNumber} von Benutzer ${req.user.name} abgerufen`, {
+    // Erfolgreichen Zugriff loggen
+    logger.info(`Rechnung ${invoice.invoiceNumber} von Benutzer ${req.user.name} abgerufen`, {
       userId: req.user.id,
       invoiceId: invoice._id,
-      invoiceNumber: invoice.invoiceNumber
+      invoiceNumber: invoice.invoiceNumber,
+      customerId: invoice.customer ? invoice.customer._id : null,
+      customerName: invoice.customer ? invoice.customer.name : null,
+      total: invoice.totalAmount,
+      status: invoice.status
     });
+    
+    // SystemLog für Rechnungsdetailansicht
+    await SystemLog.logInfo(
+      `Rechnung abgerufen: ${invoice.invoiceNumber}`,
+      req.user.id,
+      req.user.name,
+      { 
+        invoiceId: invoice._id,
+        invoiceNumber: invoice.invoiceNumber,
+        customer: invoice.customer ? invoice.customer.name : null,
+        totalAmount: invoice.totalAmount,
+        status: invoice.status,
+        timestamp: new Date().toISOString()
+      },
+      'business_event',
+      req.ip,
+      {
+        module: 'invoices',
+        action: 'view',
+        entity: 'invoice',
+        entityId: invoice._id
+      }
+    );
 
     res.status(200).json({
       success: true,
@@ -445,7 +254,7 @@ exports.getInvoice = async (req, res) => {
         error: error.stack,
         invoiceId: req.params.id
       },
-      'data_access',
+      'data_access_error',
       req.ip,
       {
         module: 'invoices',
@@ -468,6 +277,7 @@ exports.getInvoice = async (req, res) => {
 exports.createInvoice = async (req, res) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
+    // Validierungsfehler loggen
     logger.warn(`Validierungsfehler beim Erstellen einer Rechnung durch Benutzer ${req.user.name}`, {
       userId: req.user.id,
       validationErrors: errors.array(),
@@ -479,7 +289,7 @@ exports.createInvoice = async (req, res) => {
       req.user.id,
       req.user.name,
       { validationErrors: errors.array() },
-      'validation',
+      'validation_error',
       req.ip,
       {
         module: 'invoices',
@@ -508,19 +318,36 @@ exports.createInvoice = async (req, res) => {
     }
 
     // Prüfe, ob der Kunde existiert
+    let customerName = "Unbekannter Kunde";
     if (req.body.customer) {
       const customer = await Customer.findById(req.body.customer);
       if (!customer) {
+        // Versuch mit nicht existierendem Kunden loggen
         logger.warn(`Versuch, Rechnung mit nicht existierendem Kunden zu erstellen: ID ${req.body.customer}`, {
           userId: req.user.id,
           customerId: req.body.customer
         });
+        
+        await SystemLog.logWarning(
+          `Versuch, Rechnung mit nicht existierendem Kunden zu erstellen: ID ${req.body.customer}`,
+          req.user.id,
+          req.user.name,
+          { customerId: req.body.customer },
+          'validation_error',
+          req.ip,
+          {
+            module: 'invoices',
+            action: 'create',
+            entity: 'invoice'
+          }
+        );
         
         return res.status(404).json({
           success: false,
           message: 'Der angegebene Kunde wurde nicht gefunden'
         });
       }
+      customerName = customer.name;
     }
 
     // Setze arbeitszeitbezogene Einträge als abgerechnet
@@ -531,12 +358,31 @@ exports.createInvoice = async (req, res) => {
       });
       
       if (timeTrackingCount !== req.body.timeTracking.length) {
+        // Versuch mit nicht existierenden Zeiterfassungen loggen
         logger.warn(`Versuch, Rechnung mit nicht existierenden Zeiterfassungseinträgen zu erstellen`, {
           userId: req.user.id,
           timeTrackingIds: req.body.timeTracking,
           foundCount: timeTrackingCount,
           expectedCount: req.body.timeTracking.length
         });
+        
+        await SystemLog.logWarning(
+          `Versuch, Rechnung mit nicht existierenden Zeiterfassungseinträgen zu erstellen`,
+          req.user.id,
+          req.user.name,
+          { 
+            timeTrackingIds: req.body.timeTracking,
+            foundCount: timeTrackingCount,
+            expectedCount: req.body.timeTracking.length
+          },
+          'validation_error',
+          req.ip,
+          {
+            module: 'invoices',
+            action: 'create',
+            entity: 'invoice'
+          }
+        );
         
         return res.status(400).json({
           success: false,
@@ -562,9 +408,10 @@ exports.createInvoice = async (req, res) => {
         req.user.name,
         { 
           timeTrackingIds: req.body.timeTracking,
-          count: req.body.timeTracking.length
+          count: req.body.timeTracking.length,
+          timestamp: new Date().toISOString()
         },
-        'time_tracking',
+        'business_event',
         req.ip,
         {
           module: 'invoices',
@@ -581,19 +428,31 @@ exports.createInvoice = async (req, res) => {
 
     // Rechnung erstellen
     const invoice = await Invoice.create(req.body);
+    
+    // Auftragsinformationen für Logging abrufen
+    let orderInfo = "Kein Auftrag";
+    if (invoice.order) {
+      const order = await Order.findById(invoice.order).select('orderNumber');
+      if (order) {
+        orderInfo = order.orderNumber;
+      }
+    }
 
     // Rechnungsdetails für Log sammeln
     const invoiceDetails = {
       invoiceId: invoice._id,
       invoiceNumber: invoice.invoiceNumber,
       customer: invoice.customer,
+      customerName,
       order: invoice.order,
+      orderNumber: orderInfo,
       issueDate: invoice.issueDate,
       dueDate: invoice.dueDate,
       subtotal: invoice.subtotal,
       taxAmount: invoice.taxAmount,
       totalAmount: invoice.totalAmount,
       itemsCount: invoice.items.length,
+      timeTrackingCount: invoice.timeTracking ? invoice.timeTracking.length : 0,
       status: invoice.status
     };
 
@@ -607,13 +466,13 @@ exports.createInvoice = async (req, res) => {
       status: invoice.status
     });
 
-    // Erfolgreiche Rechnungserstellung loggen
+    // Erfolgreiche Rechnungserstellung im SystemLog protokollieren
     await SystemLog.logInfo(
       `Neue Rechnung erstellt: ${invoice.invoiceNumber}, Betrag: ${invoice.totalAmount}`,
       req.user.id,
       req.user.name,
       invoiceDetails,
-      'data_operation',
+      'business_event',
       req.ip,
       {
         module: 'invoices',
@@ -653,7 +512,7 @@ exports.createInvoice = async (req, res) => {
           subtotal: req.body.subtotal
         }
       },
-      'data_operation',
+      'data_operation_error',
       req.ip,
       {
         module: 'invoices',
@@ -677,6 +536,7 @@ exports.updateInvoice = async (req, res) => {
     let invoice = await Invoice.findById(req.params.id);
 
     if (!invoice) {
+      // Nicht existierende Rechnung loggen
       logger.warn(`Versuch, nicht existierende Rechnung zu aktualisieren: ID ${req.params.id}`, {
         userId: req.user.id,
         invoiceId: req.params.id
@@ -687,7 +547,7 @@ exports.updateInvoice = async (req, res) => {
         req.user.id,
         req.user.name,
         { requestedId: req.params.id },
-        'data_operation',
+        'data_operation_warning',
         req.ip,
         {
           module: 'invoices',
@@ -704,6 +564,7 @@ exports.updateInvoice = async (req, res) => {
 
     // Zugriffsberechtigungen prüfen
     if (invoice.createdBy.toString() !== req.user.id && req.user.role !== 'admin') {
+      // Nicht autorisierten Aktualisierungsversuch loggen
       logger.warn(`Nicht autorisierter Aktualisierungsversuch für Rechnung ${invoice.invoiceNumber} von Benutzer ${req.user.name}`, {
         userId: req.user.id,
         invoiceId: invoice._id,
@@ -719,7 +580,7 @@ exports.updateInvoice = async (req, res) => {
           invoiceNumber: invoice.invoiceNumber,
           ownerUserId: invoice.createdBy
         },
-        'authorization',
+        'authorization_warning',
         req.ip,
         {
           module: 'invoices',
@@ -735,24 +596,13 @@ exports.updateInvoice = async (req, res) => {
       });
     }
 
-    // Alter Status für Statusänderungserkennung
-    const oldStatus = invoice.status;
-    const oldData = {
-      status: invoice.status,
-      subtotal: invoice.subtotal,
-      taxRate: invoice.taxRate,
-      taxAmount: invoice.taxAmount,
-      totalAmount: invoice.totalAmount,
-      items: [...invoice.items],
-      timeTracking: [...(invoice.timeTracking || [])],
-      notes: invoice.notes,
-      dueDate: invoice.dueDate
-    };
+    // Alte Zeiterfassungsdaten für den Vergleich
+    const oldTimeTrackingIds = invoice.timeTracking ? 
+      invoice.timeTracking.map(id => id.toString()) : [];
     
     // Prüfen, ob neue Zeiterfassungsdaten hinzugefügt wurden
     if (req.body.timeTracking && req.body.timeTracking.length > 0) {
       // Finde die Einträge, die neu hinzugefügt wurden
-      const oldTimeTrackingIds = oldData.timeTracking.map(id => id.toString());
       const newTimeTrackingIds = req.body.timeTracking.filter(id => 
         !oldTimeTrackingIds.includes(id.toString())
       );
@@ -764,6 +614,7 @@ exports.updateInvoice = async (req, res) => {
         });
         
         if (timeTrackingCount !== newTimeTrackingIds.length) {
+          // Versuch mit nicht existierenden Zeiterfassungen loggen
           logger.warn(`Versuch, Rechnung mit nicht existierenden Zeiterfassungseinträgen zu aktualisieren`, {
             userId: req.user.id,
             invoiceId: invoice._id,
@@ -772,6 +623,27 @@ exports.updateInvoice = async (req, res) => {
             foundCount: timeTrackingCount,
             expectedCount: newTimeTrackingIds.length
           });
+          
+          await SystemLog.logWarning(
+            `Versuch, Rechnung mit nicht existierenden Zeiterfassungseinträgen zu aktualisieren`,
+            req.user.id,
+            req.user.name,
+            { 
+              invoiceId: invoice._id,
+              invoiceNumber: invoice.invoiceNumber,
+              newTimeTrackingIds,
+              foundCount: timeTrackingCount,
+              expectedCount: newTimeTrackingIds.length
+            },
+            'validation_error',
+            req.ip,
+            {
+              module: 'invoices',
+              action: 'update',
+              entity: 'invoice',
+              entityId: invoice._id
+            }
+          );
           
           return res.status(400).json({
             success: false,
@@ -801,9 +673,10 @@ exports.updateInvoice = async (req, res) => {
             invoiceId: invoice._id,
             invoiceNumber: invoice.invoiceNumber,
             newTimeTrackingIds,
-            count: newTimeTrackingIds.length
+            count: newTimeTrackingIds.length,
+            timestamp: new Date().toISOString()
           },
-          'time_tracking',
+          'business_event',
           req.ip,
           {
             module: 'invoices',
@@ -822,18 +695,16 @@ exports.updateInvoice = async (req, res) => {
     }
     
     // Prüfen, ob Zeiterfassungsdaten entfernt wurden
-    if (oldData.timeTracking.length > 0) {
-      let removedTimeTrackingIds = [];
-      
+    let removedTimeTrackingIds = [];
+    
+    if (oldTimeTrackingIds.length > 0) {
       if (!req.body.timeTracking || req.body.timeTracking.length === 0) {
         // Alle Zeiterfassungen entfernt
-        removedTimeTrackingIds = oldData.timeTracking.map(id => id.toString());
+        removedTimeTrackingIds = oldTimeTrackingIds;
       } else {
         // Nur einige entfernt - finde die, die nicht mehr dabei sind
         const newTimeTrackingIds = req.body.timeTracking.map(id => id.toString());
-        removedTimeTrackingIds = oldData.timeTracking
-          .map(id => id.toString())
-          .filter(id => !newTimeTrackingIds.includes(id));
+        removedTimeTrackingIds = oldTimeTrackingIds.filter(id => !newTimeTrackingIds.includes(id));
       }
       
       if (removedTimeTrackingIds.length > 0) {
@@ -859,9 +730,10 @@ exports.updateInvoice = async (req, res) => {
             invoiceId: invoice._id,
             invoiceNumber: invoice.invoiceNumber,
             removedTimeTrackingIds,
-            count: removedTimeTrackingIds.length
+            count: removedTimeTrackingIds.length,
+            timestamp: new Date().toISOString()
           },
-          'time_tracking',
+          'business_event',
           req.ip,
           {
             module: 'invoices',
@@ -879,7 +751,32 @@ exports.updateInvoice = async (req, res) => {
       }
     }
 
-    // Aktualisiere die Rechnung
+    // Alter Status für Statusänderungserkennung
+    const oldStatus = invoice.status;
+    
+    // Alte Daten für Änderungsverfolgung
+    const oldData = {
+      status: invoice.status,
+      subtotal: invoice.subtotal,
+      taxRate: invoice.taxRate,
+      taxAmount: invoice.taxAmount,
+      totalAmount: invoice.totalAmount,
+      items: [...invoice.items],
+      timeTracking: [...(invoice.timeTracking || [])],
+      notes: invoice.notes,
+      dueDate: invoice.dueDate
+    };
+
+    // Auftragsinformationen für Logging abrufen
+    let orderInfo = "Kein Auftrag";
+    if (invoice.order) {
+      const order = await Order.findById(invoice.order).select('orderNumber');
+      if (order) {
+        orderInfo = order.orderNumber;
+      }
+    }
+
+    // Rechnung aktualisieren
     invoice = await Invoice.findByIdAndUpdate(req.params.id, req.body, {
       new: true,
       runValidators: true
@@ -887,7 +784,7 @@ exports.updateInvoice = async (req, res) => {
     .populate('customer', 'name')
     .populate('order', 'orderNumber');
 
-    // Erfasse die Änderungen für detailliertes Logging
+    // Änderungen identifizieren
     const changes = {};
     
     // Status geändert?
@@ -914,7 +811,8 @@ exports.updateInvoice = async (req, res) => {
           invoiceId: invoice._id,
           invoiceNumber: invoice.invoiceNumber,
           oldStatus,
-          newStatus: invoice.status
+          newStatus: invoice.status,
+          timestamp: new Date().toISOString()
         },
         'status_change',
         req.ip,
@@ -950,13 +848,48 @@ exports.updateInvoice = async (req, res) => {
             invoiceId: invoice._id,
             invoiceNumber: invoice.invoiceNumber,
             totalAmount: invoice.totalAmount,
-            customer: invoice.customer
+            customer: invoice.customer,
+            orderNumber: orderInfo,
+            timestamp: new Date().toISOString()
           },
           'payment',
           req.ip,
           {
             module: 'invoices',
             action: 'pay',
+            entity: 'invoice',
+            entityId: invoice._id
+          }
+        );
+      }
+      
+      // Bei Stornierung spezielle Meldung loggen
+      if (invoice.status === 'storniert') {
+        logger.info(`Rechnung storniert: ${invoice.invoiceNumber}, Betrag: ${invoice.totalAmount}`, {
+          userId: req.user.id,
+          invoiceId: invoice._id,
+          invoiceNumber: invoice.invoiceNumber,
+          totalAmount: invoice.totalAmount,
+          customer: invoice.customer.toString()
+        });
+        
+        await SystemLog.logInfo(
+          `Rechnung storniert: ${invoice.invoiceNumber}, Betrag: ${invoice.totalAmount}`,
+          req.user.id,
+          req.user.name,
+          { 
+            invoiceId: invoice._id,
+            invoiceNumber: invoice.invoiceNumber,
+            totalAmount: invoice.totalAmount,
+            customer: invoice.customer,
+            orderNumber: orderInfo,
+            timestamp: new Date().toISOString()
+          },
+          'invoice_cancelled',
+          req.ip,
+          {
+            module: 'invoices',
+            action: 'cancel',
             entity: 'invoice',
             entityId: invoice._id
           }
@@ -1016,6 +949,14 @@ exports.updateInvoice = async (req, res) => {
       };
     }
 
+    // Zeiterfassungen geändert?
+    if (req.body.timeTracking) {
+      changes.timeTracking = {
+        added: req.body.timeTracking.length - oldTimeTrackingIds.length,
+        removed: removedTimeTrackingIds.length
+      };
+    }
+
     // Hauptlog für die Aktualisierung mit Zusammenfassung der Änderungen
     const changesList = Object.keys(changes);
     let changeDescription = '';
@@ -1039,9 +980,15 @@ exports.updateInvoice = async (req, res) => {
       { 
         invoiceId: invoice._id,
         invoiceNumber: invoice.invoiceNumber,
-        changes
+        customer: invoice.customer ? invoice.customer.toString() : null,
+        customerName: invoice.customer ? invoice.customer.name : null,
+        orderNumber: orderInfo,
+        totalAmount: invoice.totalAmount,
+        changes,
+        changeDescription,
+        timestamp: new Date().toISOString()
       },
-      'data_operation',
+      'business_event',
       req.ip,
       {
         module: 'invoices',
@@ -1079,7 +1026,7 @@ exports.updateInvoice = async (req, res) => {
           itemsCount: req.body.items ? req.body.items.length : 'nicht angegeben'
         }
       },
-      'data_operation',
+      'data_operation_error',
       req.ip,
       {
         module: 'invoices',
@@ -1092,6 +1039,249 @@ exports.updateInvoice = async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Serverfehler beim Aktualisieren der Rechnung'
+    });
+  }
+};
+
+// @desc    Rechnung löschen
+// @route   DELETE /api/invoices/:id
+// @access  Private
+exports.deleteInvoice = async (req, res) => {
+  try {
+    const invoice = await Invoice.findById(req.params.id);
+
+    if (!invoice) {
+      // Nicht existierende Rechnung loggen
+      logger.warn(`Versuch, nicht existierende Rechnung zu löschen: ID ${req.params.id}`, {
+        userId: req.user.id,
+        invoiceId: req.params.id
+      });
+      
+      await SystemLog.logWarning(
+        `Versuch, nicht existierende Rechnung zu löschen: ID ${req.params.id}`,
+        req.user.id,
+        req.user.name,
+        { requestedId: req.params.id },
+        'data_operation_warning',
+        req.ip,
+        {
+          module: 'invoices',
+          action: 'delete',
+          entity: 'invoice'
+        }
+      );
+      
+      return res.status(404).json({
+        success: false,
+        message: 'Rechnung nicht gefunden'
+      });
+    }
+
+    // Zugriffsberechtigungen prüfen
+    if (invoice.createdBy.toString() !== req.user.id && req.user.role !== 'admin') {
+      // Nicht autorisierten Löschversuch loggen
+      logger.warn(`Nicht autorisierter Löschversuch für Rechnung ${invoice.invoiceNumber} von Benutzer ${req.user.name}`, {
+        userId: req.user.id,
+        invoiceId: invoice._id,
+        invoiceNumber: invoice.invoiceNumber
+      });
+      
+      await SystemLog.logWarning(
+        `Nicht autorisierter Löschversuch für Rechnung: ID ${req.params.id}`,
+        req.user.id,
+        req.user.name,
+        { 
+          invoiceId: invoice._id,
+          invoiceNumber: invoice.invoiceNumber,
+          ownerUserId: invoice.createdBy
+        },
+        'authorization_warning',
+        req.ip,
+        {
+          module: 'invoices',
+          action: 'delete',
+          entity: 'invoice',
+          entityId: invoice._id
+        }
+      );
+      
+      return res.status(403).json({
+        success: false,
+        message: 'Sie haben keine Berechtigung, diese Rechnung zu löschen'
+      });
+    }
+
+    // Prüfen, ob die Rechnung bereits bezahlt ist - in diesem Fall keine Löschung erlauben
+    if (invoice.status === 'bezahlt') {
+      // Versuch, eine bereits bezahlte Rechnung zu löschen loggen
+      logger.warn(`Versuch, eine bereits bezahlte Rechnung zu löschen: ${invoice.invoiceNumber}`, {
+        userId: req.user.id,
+        invoiceId: invoice._id,
+        invoiceNumber: invoice.invoiceNumber
+      });
+      
+      await SystemLog.logWarning(
+        `Versuch, eine bereits bezahlte Rechnung zu löschen: ${invoice.invoiceNumber}`,
+        req.user.id,
+        req.user.name,
+        { 
+          invoiceId: invoice._id,
+          invoiceNumber: invoice.invoiceNumber,
+          status: invoice.status,
+          totalAmount: invoice.totalAmount
+        },
+        'business_rule',
+        req.ip,
+        {
+          module: 'invoices',
+          action: 'delete',
+          entity: 'invoice',
+          entityId: invoice._id
+        }
+      );
+      
+      return res.status(400).json({
+        success: false,
+        message: 'Bezahlte Rechnungen können nicht gelöscht werden. Bitte stornieren Sie die Rechnung stattdessen.'
+      });
+    }
+
+    // Auftragsinformationen für Logging abrufen
+    let orderInfo = "Kein Auftrag";
+    if (invoice.order) {
+      const order = await Order.findById(invoice.order).select('orderNumber');
+      if (order) {
+        orderInfo = order.orderNumber;
+      }
+    }
+
+    // Kundeninformationen für Logging abrufen
+    let customerName = "Kein Kunde";
+    if (invoice.customer) {
+      const customer = await Customer.findById(invoice.customer).select('name');
+      if (customer) {
+        customerName = customer.name;
+      }
+    }
+
+    // Rechnungsdetails für die Protokollierung speichern
+    const invoiceDetails = {
+      invoiceId: invoice._id,
+      invoiceNumber: invoice.invoiceNumber,
+      customer: invoice.customer,
+      customerName,
+      order: invoice.order,
+      orderNumber: orderInfo,
+      issueDate: invoice.issueDate,
+      totalAmount: invoice.totalAmount,
+      status: invoice.status,
+      itemsCount: invoice.items.length,
+      timeTrackingCount: invoice.timeTracking ? invoice.timeTracking.length : 0
+    };
+
+    // Setze arbeitszeitbezogene Einträge als nicht abgerechnet
+    if (invoice.timeTracking && invoice.timeTracking.length > 0) {
+      await TimeTracking.updateMany(
+        { _id: { $in: invoice.timeTracking } },
+        { billed: false }
+      );
+      
+      // Änderung des Abrechnungsstatus loggen
+      logger.info(`${invoice.timeTracking.length} Zeiterfassungseinträge durch Rechnungslöschung als nicht abgerechnet markiert`, {
+        userId: req.user.id,
+        invoiceId: invoice._id,
+        invoiceNumber: invoice.invoiceNumber,
+        timeTrackingCount: invoice.timeTracking.length
+      });
+      
+      await SystemLog.logInfo(
+        `Zeiterfassungseinträge durch Rechnungslöschung als nicht abgerechnet markiert`,
+        req.user.id,
+        req.user.name,
+        { 
+          invoiceId: invoice._id,
+          invoiceNumber: invoice.invoiceNumber,
+          timeTrackingIds: invoice.timeTracking,
+          count: invoice.timeTracking.length,
+          timestamp: new Date().toISOString()
+        },
+        'time_tracking',
+        req.ip,
+        {
+          module: 'invoices',
+          action: 'delete',
+          entity: 'invoice',
+          entityId: invoice._id,
+          changes: {
+            timeTracking: {
+              billingStatus: 'unbilled',
+              count: invoice.timeTracking.length
+            }
+          }
+        }
+      );
+    }
+
+    // Rechnung löschen
+    await invoice.deleteOne();
+
+    // Erfolgreiche Rechnungslöschung loggen
+    logger.info(`Rechnung ${invoice.invoiceNumber} von Benutzer ${req.user.name} gelöscht, Betrag: ${invoice.totalAmount}`, {
+      userId: req.user.id,
+      invoiceId: invoice._id,
+      invoiceNumber: invoice.invoiceNumber,
+      customer: invoice.customer ? invoice.customer.toString() : null,
+      totalAmount: invoice.totalAmount
+    });
+    
+    await SystemLog.logInfo(
+      `Rechnung gelöscht: ${invoice.invoiceNumber}, Betrag: ${invoice.totalAmount}`,
+      req.user.id,
+      req.user.name,
+      invoiceDetails,
+      'business_event',
+      req.ip,
+      {
+        module: 'invoices',
+        action: 'delete',
+        entity: 'invoice',
+        entityId: invoice._id
+      }
+    );
+
+    res.status(200).json({
+      success: true,
+      data: {}
+    });
+  } catch (error) {
+    logger.error(`Fehler beim Löschen der Rechnung ${req.params.id}: ${error.message}`, {
+      error: error.stack,
+      userId: req.user.id,
+      invoiceId: req.params.id
+    });
+    
+    // Fehler loggen
+    await SystemLog.logError(
+      `Fehler beim Löschen der Rechnung mit ID ${req.params.id}: ${error.message}`,
+      req.user.id,
+      req.user.name,
+      { 
+        error: error.stack,
+        invoiceId: req.params.id
+      },
+      'data_operation_error',
+      req.ip,
+      {
+        module: 'invoices',
+        action: 'delete',
+        entity: 'invoice',
+        entityId: req.params.id
+      }
+    );
+    
+    res.status(500).json({
+      success: false,
+      message: 'Serverfehler beim Löschen der Rechnung'
     });
   }
 };
