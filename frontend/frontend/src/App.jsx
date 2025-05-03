@@ -1,4 +1,4 @@
-import { Routes, Route, Navigate } from 'react-router-dom'
+import { Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import { useAuth } from './context/AuthContext'
 import { ThemeProvider } from './context/ThemeContext'
 import { DashboardProvider } from './context/DashboardContext'
@@ -45,19 +45,76 @@ import UserProfile from './pages/profile/UserProfile'
 // Error Pages
 import NotFound from './pages/NotFound'
 
-function App() {
-  const { user } = useAuth()
+// ProtectedRoute Komponente, um Route-Zustand zu erhalten
+const ProtectedRoute = ({ children }) => {
+  const { user, initialized } = useAuth();
+  const location = useLocation();
 
+  // Warte auf die Initialisierung des Auth-Kontexts
+  if (!initialized) {
+    return <div className="flex justify-center items-center h-screen">
+      <div className="spinner"></div>
+      <p className="ml-2 text-gray-600 dark:text-gray-300">Lädt...</p>
+    </div>;
+  }
+
+  // Wenn der Benutzer nicht angemeldet ist, speichere aktuelle Route und navigiere zum Login
+  if (!user) {
+    // Speichere den aktuellen Pfad, aber nur wenn es keine Login- oder Register-Route ist
+    if (location.pathname !== '/login' && location.pathname !== '/register') {
+      sessionStorage.setItem('redirectPath', location.pathname + location.search);
+    }
+    return <Navigate to="/login" />;
+  }
+
+  // Benutzer ist angemeldet, zeige die Komponente
+  return children;
+};
+
+// LoginRedirect Komponente, um nach Login zur vorherigen Route zurückzukehren
+const LoginRedirect = ({ children }) => {
+  const { user } = useAuth();
+  
+  if (user) {
+    // Prüfen, ob ein gespeicherter Pfad existiert
+    const redirectPath = sessionStorage.getItem('redirectPath');
+    if (redirectPath) {
+      // Pfad aus dem Storage entfernen
+      sessionStorage.removeItem('redirectPath');
+      return <Navigate to={redirectPath} />;
+    }
+    
+    // Kein gespeicherter Pfad, zum Dashboard navigieren
+    return <Navigate to="/" />;
+  }
+  
+  // Benutzer ist nicht angemeldet, zeige Login/Register
+  return children;
+};
+
+function App() {
   return (
     <ThemeProvider>
       <DashboardProvider>
         <Routes>
-          {/* Public Routes */}
-          <Route path="/login" element={!user ? <Login /> : <Navigate to="/" />} />
-          <Route path="/register" element={!user ? <Register /> : <Navigate to="/" />} />
+          {/* Public Routes mit Login-Weiterleitung */}
+          <Route path="/login" element={
+            <LoginRedirect>
+              <Login />
+            </LoginRedirect>
+          } />
+          <Route path="/register" element={
+            <LoginRedirect>
+              <Register />
+            </LoginRedirect>
+          } />
 
-          {/* Protected Routes */}
-          <Route path="/" element={user ? <MainLayout /> : <Navigate to="/login" />}>
+          {/* Protected Routes mit MainLayout */}
+          <Route path="/" element={
+            <ProtectedRoute>
+              <MainLayout />
+            </ProtectedRoute>
+          }>
             <Route index element={<Dashboard />} />
             
             {/* Customer Routes */}
@@ -90,6 +147,7 @@ function App() {
               <Route path=":id" element={<InvoiceDetail />} />
               <Route path=":id/edit" element={<InvoiceForm />} />
             </Route>
+            
             {/* User Profile Route */}
             <Route path="profile" element={<UserProfile />} />
 

@@ -1,4 +1,4 @@
-// frontend/frontend/src/context/AuthContext.jsx (korrigiert)
+// frontend/frontend/src/context/AuthContext.jsx (angepasst)
 import { createContext, useContext, useState, useEffect } from 'react'
 import { jwtDecode } from 'jwt-decode'
 import { toast } from 'react-toastify'
@@ -150,6 +150,7 @@ export const AuthProvider = ({ children }) => {
 
   const handleLogout = () => {
     localStorage.removeItem('token')
+    sessionStorage.removeItem('redirectPath') // Lösche gespeicherten Pfad beim Logout
     setToken(null)
     setUser(null)
     setAuthError(null)
@@ -172,7 +173,7 @@ export const AuthProvider = ({ children }) => {
     token,
     loading,
     error: authError,
-    initialized: !initializing,
+    initialized: !initializing, // Hier als Gegenteil von initializing
     login: handleLogin,
     register: handleRegister,
     logout: handleLogout,
@@ -188,5 +189,3 @@ export const AuthProvider = ({ children }) => {
 }
 
 export default AuthProvider
-
-

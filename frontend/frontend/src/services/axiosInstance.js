@@ -1,6 +1,7 @@
-// frontend/frontend/src/services/axiosInstance.js (Anpassung)
+// frontend/frontend/src/services/axiosInstance.js (Anpassung mit requestManager)
 import axios from 'axios';
 import { toast } from 'react-toastify';
+import requestManager from '../utils/RequestManager.js'; // Importiere den RequestManager
 
 // Definierte API-URLs
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
@@ -123,4 +124,40 @@ axiosInstance.interceptors.response.use(
   }
 );
 
-export default axiosInstance;
+// Erweiterter axiosInstance-Export mit requestManager-Integration
+const enhancedAxiosInstance = {
+  get: (url, config) => {
+    return requestManager.executeRequest(
+      () => axiosInstance.get(url, config),
+      url,
+      'GET',
+      config
+    );
+  },
+  post: (url, data, config) => {
+    return requestManager.executeRequest(
+      () => axiosInstance.post(url, data, config),
+      url,
+      'POST',
+      { data, ...config }
+    );
+  },
+  put: (url, data, config) => {
+    return requestManager.executeRequest(
+      () => axiosInstance.put(url, data, config),
+      url,
+      'PUT',
+      { data, ...config }
+    );
+  },
+  delete: (url, config) => {
+    return requestManager.executeRequest(
+      () => axiosInstance.delete(url, config),
+      url,
+      'DELETE',
+      config
+    );
+  }
+};
+
+export default enhancedAxiosInstance;

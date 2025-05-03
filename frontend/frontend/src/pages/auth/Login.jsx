@@ -1,4 +1,4 @@
-// src/pages/auth/Login.jsx
+// src/pages/auth/Login.jsx (angepasst)
 import { useState, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
@@ -6,7 +6,7 @@ import { ExclamationCircleIcon } from '@heroicons/react/outline'
 
 const Login = () => {
   const navigate = useNavigate()
-  const { login, loading, error, user, clearError } = useAuth()
+  const { login, loading, error, user, clearError, initialized } = useAuth()
   
   // Form-Zustand
   const [formData, setFormData] = useState({
@@ -18,15 +18,24 @@ const Login = () => {
 
   // Redirect wenn bereits angemeldet
   useEffect(() => {
-    if (user) {
-      navigate('/')
+    if (initialized && user) {
+      // Prüfen, ob ein gespeicherter Pfad existiert
+      const redirectPath = sessionStorage.getItem('redirectPath')
+      if (redirectPath) {
+        // Pfad aus dem Storage entfernen
+        sessionStorage.removeItem('redirectPath')
+        navigate(redirectPath)
+      } else {
+        // Kein gespeicherter Pfad, zum Dashboard navigieren
+        navigate('/')
+      }
     }
     
     // Fehler beim unmounten zurücksetzen
     return () => {
       if (clearError) clearError()
     }
-  }, [user, navigate, clearError])
+  }, [user, navigate, clearError, initialized])
 
   const handleChange = (e) => {
     const { name, value } = e.target
@@ -88,6 +97,16 @@ const Login = () => {
         console.log("Login failed but handled in component:", err)
       }
     }
+  }
+
+  // Zeige Ladeindikator während der Initialisierung
+  if (!initialized) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
+        <div className="spinner"></div>
+        <p className="ml-2 text-gray-600">Anwendung wird initialisiert...</p>
+      </div>
+    )
   }
 
   return (

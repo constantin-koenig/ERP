@@ -1,4 +1,4 @@
-// src/main.jsx - Korrigierte Version
+// src/main.jsx - StrictMode entfernt, um doppelte API-Anfragen zu vermeiden
 import React from 'react'
 import ReactDOM from 'react-dom/client'
 import App from './App.jsx'
@@ -22,13 +22,12 @@ const toastContainerConfig = {
   // Setze hier kein Theme, es wird dynamisch in der App angepasst
 };
 
+// StrictMode wurde entfernt, um doppelte API-Anfragen zu vermeiden
 ReactDOM.createRoot(document.getElementById('root')).render(
-  <React.StrictMode>
-    <BrowserRouter>
-      <AuthProvider>
-        <App />
-        <ToastContainer {...toastContainerConfig} />
-      </AuthProvider>
-    </BrowserRouter>
-  </React.StrictMode>
+  <BrowserRouter>
+    <AuthProvider>
+      <App />
+      <ToastContainer {...toastContainerConfig} />
+    </AuthProvider>
+  </BrowserRouter>
 )
